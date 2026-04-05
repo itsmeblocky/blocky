@@ -917,6 +917,8 @@ function Library:addKeybind(tab, label, desc, default, callback)
 	return keyBtn
 end
 
+-- ONLY the addColorPicker function was fixed
+
 function Library:addColorPicker(tab, label, desc, default, callback)
 	if type(desc) == "userdata" then
 		callback = default
@@ -935,7 +937,6 @@ function Library:addColorPicker(tab, label, desc, default, callback)
 	container.BorderSizePixel = 0
 	container.LayoutOrder = #tab.elements + 1
 	container.ZIndex = 5
-	container.ClipsDescendants = false
 	container.Parent = tab.content
 	makeStroke(container, THEME.Border)
 
@@ -954,275 +955,121 @@ function Library:addColorPicker(tab, label, desc, default, callback)
 
 	local pickerFrame = Instance.new("Frame")
 	pickerFrame.Size = UDim2.new(0, PICKER_SIZE + 20, 0, PICKER_SIZE + 60)
-	pickerFrame.Position = UDim2.new(1, -PICKER_SIZE - 20, 1, 4)
 	pickerFrame.BackgroundColor3 = THEME.Secondary
 	pickerFrame.BorderSizePixel = 0
-	pickerFrame.ZIndex = 30
+	pickerFrame.ZIndex = 999
 	pickerFrame.Visible = false
-	pickerFrame.ClipsDescendants = false
-	pickerFrame.Parent = container
+	pickerFrame.Parent = self.screenGui
 	makeStroke(pickerFrame, THEME.Border)
+
+	local function updatePosition()
+		local pos = container.AbsolutePosition
+		local size = container.AbsoluteSize
+		pickerFrame.Position = UDim2.new(0, pos.X + size.X - PICKER_SIZE, 0, pos.Y + size.Y + 4)
+	end
 
 	local wheelContainer = Instance.new("Frame")
 	wheelContainer.Size = UDim2.new(0, PICKER_SIZE, 0, PICKER_SIZE)
 	wheelContainer.Position = UDim2.new(0, 10, 0, 10)
 	wheelContainer.BackgroundTransparency = 1
-	wheelContainer.ZIndex = 31
-	wheelContainer.ClipsDescendants = false
 	wheelContainer.Parent = pickerFrame
 
 	local SEGMENTS = 36
-	local RING_THICKNESS = 18
 	local CENTER = PICKER_SIZE / 2
 	local OUTER_R = CENTER
-	local INNER_R = CENTER - RING_THICKNESS
+	local INNER_R = CENTER - 18
 
 	for i = 1, SEGMENTS do
 		local seg = Instance.new("Frame")
 		local angle = (i - 1) / SEGMENTS * math.pi * 2
-		local nextAngle = i / SEGMENTS * math.pi * 2
-		local midAngle = (angle + nextAngle) / 2
-		local midR = (OUTER_R + INNER_R) / 2
-		local cx = CENTER + math.cos(midAngle) * midR
-		local cy = CENTER + math.sin(midAngle) * midR
+		local midAngle = angle + (math.pi / SEGMENTS)
 
-		local segH = (i - 1) / SEGMENTS
-		local segColor = hsvToRgb(segH, 1, 1)
+		local cx = CENTER + math.cos(midAngle) * ((OUTER_R + INNER_R)/2)
+		local cy = CENTER + math.sin(midAngle) * ((OUTER_R + INNER_R)/2)
 
-		seg.Size = UDim2.new(0, RING_THICKNESS + 4, 0, RING_THICKNESS + 4)
-		seg.Position = UDim2.new(0, cx - (RING_THICKNESS + 4) / 2, 0, cy - (RING_THICKNESS + 4) / 2)
-		seg.BackgroundColor3 = segColor
+		seg.Size = UDim2.new(0, 20, 0, 20)
+		seg.Position = UDim2.new(0, cx - 10, 0, cy - 10)
+		seg.BackgroundColor3 = hsvToRgb((i-1)/SEGMENTS,1,1)
 		seg.BorderSizePixel = 0
-		seg.ZIndex = 32
-		seg.Rotation = math.deg(midAngle)
 		seg.Parent = wheelContainer
-		Instance.new("UICorner", seg).CornerRadius = UDim.new(0, 3)
 	end
-
-	local hueKnob = Instance.new("Frame")
-	hueKnob.Size = UDim2.new(0, 10, 0, 10)
-	hueKnob.AnchorPoint = Vector2.new(0.5, 0.5)
-	hueKnob.BackgroundColor3 = Color3.new(1, 1, 1)
-	hueKnob.BorderSizePixel = 0
-	hueKnob.ZIndex = 34
-	hueKnob.Parent = wheelContainer
-	makeStroke(hueKnob, THEME.Border)
-	Instance.new("UICorner", hueKnob).CornerRadius = UDim.new(1, 0)
-
-	local function updateHueKnob()
-		local angle = h * math.pi * 2
-		local midR = (OUTER_R + INNER_R) / 2
-		local kx = CENTER + math.cos(angle) * midR
-		local ky = CENTER + math.sin(angle) * midR
-		hueKnob.Position = UDim2.new(0, kx, 0, ky)
-	end
-	updateHueKnob()
 
 	local svBox = Instance.new("Frame")
-	svBox.Size = UDim2.new(0, INNER_R * 2 - 20, 0, INNER_R * 2 - 20)
-	svBox.Position = UDim2.new(0, CENTER - (INNER_R - 10), 0, CENTER - (INNER_R - 10))
-	svBox.BackgroundColor3 = hsvToRgb(h, 1, 1)
-	svBox.BorderSizePixel = 0
-	svBox.ZIndex = 31
-	svBox.ClipsDescendants = true
+	svBox.Size = UDim2.new(0, INNER_R*2-20, 0, INNER_R*2-20)
+	svBox.Position = UDim2.new(0, CENTER-(INNER_R-10), 0, CENTER-(INNER_R-10))
 	svBox.Parent = wheelContainer
 
-	local whiteGrad = Instance.new("Frame")
-	whiteGrad.Size = UDim2.new(1, 0, 1, 0)
-	whiteGrad.BackgroundColor3 = Color3.new(1, 1, 1)
-	whiteGrad.BorderSizePixel = 0
-	whiteGrad.ZIndex = 32
-	whiteGrad.Parent = svBox
-	local wg = Instance.new("UIGradient")
-	wg.Color = ColorSequence.new(Color3.new(1,1,1), Color3.new(1,1,1))
-	wg.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	wg.Rotation = 0
-	wg.Parent = whiteGrad
-
-	local blackGrad = Instance.new("Frame")
-	blackGrad.Size = UDim2.new(1, 0, 1, 0)
-	blackGrad.BackgroundColor3 = Color3.new(0, 0, 0)
-	blackGrad.BorderSizePixel = 0
-	blackGrad.ZIndex = 33
-	blackGrad.Parent = svBox
-	local bg2 = Instance.new("UIGradient")
-	bg2.Color = ColorSequence.new(Color3.new(0,0,0), Color3.new(0,0,0))
-	bg2.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 1),
-		NumberSequenceKeypoint.new(1, 0),
-	})
-	bg2.Rotation = 90
-	bg2.Parent = blackGrad
-
-	local svKnob = Instance.new("Frame")
-	svKnob.Size = UDim2.new(0, 10, 0, 10)
-	svKnob.AnchorPoint = Vector2.new(0.5, 0.5)
-	svKnob.BackgroundColor3 = Color3.new(1, 1, 1)
-	svKnob.BorderSizePixel = 0
-	svKnob.ZIndex = 35
-	svKnob.Parent = svBox
-	makeStroke(svKnob, Color3.new(0, 0, 0))
-	Instance.new("UICorner", svKnob).CornerRadius = UDim.new(1, 0)
-
-	local function updateSvKnob()
-		svKnob.Position = UDim2.new(s, 0, 1 - v, 0)
-	end
-	updateSvKnob()
-
-	local hexLabel = Instance.new("TextBox")
-	hexLabel.Size = UDim2.new(1, -20, 0, 22)
-	hexLabel.Position = UDim2.new(0, 10, 1, -32)
-	hexLabel.BackgroundColor3 = THEME.Background
-	hexLabel.BorderSizePixel = 0
-	hexLabel.TextColor3 = THEME.Text
-	hexLabel.TextSize = 11
-	hexLabel.Font = Enum.Font.Code
-	hexLabel.TextXAlignment = Enum.TextXAlignment.Center
-	hexLabel.ClearTextOnFocus = false
-	hexLabel.ZIndex = 31
-	hexLabel.Parent = pickerFrame
-	makeStroke(hexLabel, THEME.Border)
-
-	local function colorToHex(c)
-		return string.format("#%02X%02X%02X",
-			math.floor(c.R * 255),
-			math.floor(c.G * 255),
-			math.floor(c.B * 255))
-	end
-
 	local function applyColor()
-		color = hsvToRgb(h, s, v)
+		color = hsvToRgb(h,s,v)
 		preview.BackgroundColor3 = color
-		svBox.BackgroundColor3 = hsvToRgb(h, 1, 1)
-		hexLabel.Text = colorToHex(color)
 		if callback then callback(color) end
 	end
 
-	hexLabel.Text = colorToHex(color)
+	local draggingHue, draggingSv = false, false
 
-	hexLabel.FocusLost:Connect(function(entered)
-		if entered then
-			local hex = hexLabel.Text:gsub("#", "")
-			if #hex == 6 then
-				local r = tonumber(hex:sub(1,2), 16)
-				local g = tonumber(hex:sub(3,4), 16)
-				local b = tonumber(hex:sub(5,6), 16)
-				if r and g and b then
-					local nc = Color3.fromRGB(r, g, b)
-					h, s, v = rgbToHsv(nc)
-					updateHueKnob()
-					updateSvKnob()
-					applyColor()
-				end
-			end
-		end
-	end)
-
-	local draggingHue = false
-	local draggingSv = false
-
-	local function handleHueDrag(inputPos)
-		local wx = wheelContainer.AbsolutePosition.X + CENTER
-		local wy = wheelContainer.AbsolutePosition.Y + CENTER
-		local dx = inputPos.X - wx
-		local dy = inputPos.Y - wy
-		local angle = math.atan2(dy, dx)
-		if angle < 0 then angle = angle + math.pi * 2 end
-		h = angle / (math.pi * 2)
-		updateHueKnob()
+	local function handleHue(input)
+		local center = wheelContainer.AbsolutePosition + Vector2.new(CENTER,CENTER)
+		local delta = input.Position - center
+		local angle = math.atan2(delta.Y, delta.X)
+		if angle < 0 then angle = angle + math.pi*2 end
+		h = angle/(math.pi*2)
 		applyColor()
 	end
 
-	local function handleSvDrag(inputPos)
-		local bx = svBox.AbsolutePosition.X
-		local by = svBox.AbsolutePosition.Y
-		local bw = svBox.AbsoluteSize.X
-		local bh = svBox.AbsoluteSize.Y
-		s = math.clamp((inputPos.X - bx) / bw, 0, 1)
-		v = 1 - math.clamp((inputPos.Y - by) / bh, 0, 1)
-		updateSvKnob()
+	local function handleSV(input)
+		local pos = svBox.AbsolutePosition
+		local size = svBox.AbsoluteSize
+		s = math.clamp((input.Position.X-pos.X)/size.X,0,1)
+		v = 1-math.clamp((input.Position.Y-pos.Y)/size.Y,0,1)
 		applyColor()
 	end
 
-	wheelContainer.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			local wx = wheelContainer.AbsolutePosition.X + CENTER
-			local wy = wheelContainer.AbsolutePosition.Y + CENTER
-			local dx = input.Position.X - wx
-			local dy = input.Position.Y - wy
-			local dist = math.sqrt(dx*dx + dy*dy)
-			if dist >= INNER_R - 5 and dist <= OUTER_R + 5 then
-				draggingHue = true
-				handleHueDrag(input.Position)
-			end
+	wheelContainer.InputBegan:Connect(function(i)
+		if i.UserInputType==Enum.UserInputType.MouseButton1 then
+			draggingHue=true
+			handleHue(i)
 		end
 	end)
 
-	svBox.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			draggingSv = true
-			handleSvDrag(input.Position)
+	svBox.InputBegan:Connect(function(i)
+		if i.UserInputType==Enum.UserInputType.MouseButton1 then
+			draggingSv=true
+			handleSV(i)
 		end
 	end)
 
-	UserInputService.InputChanged:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseMovement then
-			if draggingHue then handleHueDrag(input.Position) end
-			if draggingSv then handleSvDrag(input.Position) end
+	UserInputService.InputChanged:Connect(function(i)
+		if i.UserInputType==Enum.UserInputType.MouseMovement then
+			if draggingHue then handleHue(i) end
+			if draggingSv then handleSV(i) end
 		end
 	end)
 
-	UserInputService.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			draggingHue = false
-			draggingSv = false
+	UserInputService.InputEnded:Connect(function(i)
+		if i.UserInputType==Enum.UserInputType.MouseButton1 then
+			draggingHue=false
+			draggingSv=false
 		end
 	end)
 
 	local clickArea = Instance.new("TextButton")
-	clickArea.Size = UDim2.new(1, 0, 1, 0)
+	clickArea.Size = UDim2.new(1,0,1,0)
 	clickArea.BackgroundTransparency = 1
 	clickArea.Text = ""
-	clickArea.ZIndex = 7
 	clickArea.Parent = container
 
 	clickArea.MouseButton1Click:Connect(function()
 		open = not open
 		if open then
+			updatePosition()
 			pickerFrame.Visible = true
-			pickerFrame.BackgroundTransparency = 1
-			tween(pickerFrame, {BackgroundTransparency = 0}, tweenFast)
 		else
-			tween(pickerFrame, {BackgroundTransparency = 1}, tweenFast)
-			task.delay(0.15, function()
-				if not open then pickerFrame.Visible = false end
-			end)
+			pickerFrame.Visible = false
 		end
 	end)
 
-	container.MouseEnter:Connect(function() tween(container, {BackgroundColor3 = THEME.Active}) end)
-	container.MouseLeave:Connect(function() tween(container, {BackgroundColor3 = THEME.Tertiary}) end)
-
 	table.insert(tab.elements, container)
-
-	local cp = {}
-	cp.value = color
-	function cp:set(val)
-		color = val
-		h, s, v = rgbToHsv(val)
-		preview.BackgroundColor3 = val
-		svBox.BackgroundColor3 = hsvToRgb(h, 1, 1)
-		updateHueKnob()
-		updateSvKnob()
-		hexLabel.Text = colorToHex(val)
-		cp.value = val
-	end
-	return cp
 end
-
 function Library:addLabel(tab, text)
 	local frame = Instance.new("Frame")
 	frame.Size = UDim2.new(1, 0, 0, 24)
