@@ -1,1 +1,1613 @@
-blocky, a roblox ui library.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blocky UI Library | Roblox UI Framework</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+        :root {
+            --primary: #0078D7;
+            --primary-dark: #005fa3;
+            --primary-light: #3d9be0;
+            --accent: #0078D7;
+            --bg-dark: #1c1c1c;
+            --bg-card: #222222;
+            --bg-card-hover: #262626;
+            --bg-tertiary: #262626;
+            --bg-active: #3c3c3c;
+            --bg-code: #141414;
+            --bg-titlebar: #181818;
+            --bg-console: #141414;
+            --text-primary: #e6e6e6;
+            --text-secondary: #b4b4b4;
+            --text-muted: #6c6c80;
+            --border: #373737;
+            --success: #00c850;
+            --warning: #ffb428;
+            --error: #ff5050;
+            --glow-primary: rgba(0, 120, 215, 0.25);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: var(--bg-dark); }
+        ::-webkit-scrollbar-thumb { background: var(--bg-active); border-radius: 2px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+
+        .bg-grid {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 0; pointer-events: none;
+            background-image:
+                linear-gradient(rgba(0, 120, 215, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 120, 215, 0.02) 1px, transparent 1px);
+            background-size: 60px 60px;
+        }
+
+        .floating-orbs {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 0; pointer-events: none; overflow: hidden;
+        }
+
+        .orb {
+            position: absolute; border-radius: 50%;
+            filter: blur(100px);
+            animation: float 25s infinite ease-in-out;
+        }
+        .orb-1 { width: 400px; height: 400px; background: rgba(0,120,215,0.06); top: 10%; left: 10%; }
+        .orb-2 { width: 300px; height: 300px; background: rgba(0,200,80,0.04); top: 50%; right: 10%; animation-delay: -8s; }
+        .orb-3 { width: 350px; height: 350px; background: rgba(0,120,215,0.04); bottom: 10%; left: 30%; animation-delay: -16s; }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0,0); }
+            25% { transform: translate(40px,-40px); }
+            50% { transform: translate(-25px,25px); }
+            75% { transform: translate(30px,15px); }
+        }
+
+        /* Nav */
+        .navbar {
+            position: fixed; top: 0; left: 0; width: 100%;
+            z-index: 1000; padding: 15px 0; transition: all 0.3s ease;
+        }
+        .navbar.scrolled {
+            background: rgba(24,24,24,0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            padding: 10px 0;
+        }
+        .nav-container {
+            max-width: 1200px; margin: 0 auto; padding: 0 30px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .nav-logo {
+            display: flex; align-items: center; gap: 12px; text-decoration: none;
+        }
+        .logo-icon {
+            width: 36px; height: 36px;
+            background: var(--bg-tertiary); border: 1px solid var(--border);
+            border-radius: 6px; display: flex; align-items: center; justify-content: center;
+            font-size: 14px; font-weight: 800; color: var(--primary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .logo-text {
+            font-size: 18px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.5px;
+        }
+        .logo-text span { color: var(--primary); }
+
+        .nav-links {
+            display: flex; align-items: center; gap: 32px; list-style: none;
+        }
+        .nav-links a {
+            color: var(--text-secondary); text-decoration: none;
+            font-size: 13px; font-weight: 500; transition: color 0.2s;
+        }
+        .nav-links a:hover { color: var(--text-primary); }
+        .nav-cta {
+            background: var(--primary) !important; color: white !important;
+            padding: 7px 18px; border-radius: 4px; font-weight: 600 !important;
+            transition: all 0.2s !important;
+        }
+        .nav-cta:hover { background: var(--primary-dark) !important; }
+
+        .hamburger {
+            display: none; flex-direction: column; gap: 5px;
+            cursor: pointer; background: none; border: none; padding: 5px;
+        }
+        .hamburger span { width: 22px; height: 2px; background: var(--text-primary); border-radius: 1px; }
+
+        /* Hero */
+        .hero {
+            position: relative; z-index: 1; min-height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+            padding: 120px 30px 80px;
+        }
+        .hero-content { max-width: 850px; text-align: center; }
+
+        .hero-badge {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: var(--bg-tertiary); border: 1px solid var(--border);
+            padding: 6px 16px; border-radius: 4px;
+            font-size: 12px; font-weight: 500; color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 28px; animation: fadeInUp 0.6s ease;
+        }
+        .hero-badge .dot {
+            width: 6px; height: 6px; background: var(--success);
+            border-radius: 50%; animation: pulse-dot 2s infinite;
+        }
+        .hero-badge #version-text { color: var(--text-secondary); }
+        .hero-badge .loading { opacity: 0.5; }
+
+        @keyframes pulse-dot { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+
+        .hero h1 {
+            font-size: clamp(40px,7vw,68px); font-weight: 800;
+            line-height: 1.1; margin-bottom: 20px; letter-spacing: -2px;
+            color: var(--text-primary); animation: fadeInUp 0.6s ease 0.1s both;
+        }
+        .hero h1 .accent { color: var(--primary); }
+
+        .hero-subtitle {
+            font-size: clamp(14px,2vw,17px); color: var(--text-secondary);
+            max-width: 560px; margin: 0 auto 36px; line-height: 1.7;
+            animation: fadeInUp 0.6s ease 0.2s both;
+        }
+
+        .hero-buttons {
+            display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
+            animation: fadeInUp 0.6s ease 0.3s both;
+        }
+
+        .btn {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 10px 24px; border-radius: 4px;
+            font-size: 13px; font-weight: 600; text-decoration: none;
+            transition: all 0.15s; cursor: pointer; border: none;
+            font-family: 'Inter', sans-serif;
+        }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); transform: translateY(-1px); }
+        .btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border); }
+        .btn-secondary:hover { background: var(--bg-active); transform: translateY(-1px); }
+        .btn-accent { background: var(--success); color: white; }
+        .btn-accent:hover { filter: brightness(0.9); transform: translateY(-1px); }
+
+        .hero-stats {
+            display: flex; justify-content: center; gap: 50px; margin-top: 50px;
+            animation: fadeInUp 0.6s ease 0.4s both;
+        }
+        .stat-number {
+            font-size: 28px; font-weight: 800; color: var(--primary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .stat-label { font-size: 12px; color: var(--text-muted); margin-top: 2px; font-weight: 500; }
+
+        /* Code Window */
+        .hero-code { margin-top: 50px; animation: fadeInUp 0.6s ease 0.5s both; }
+
+        .code-window {
+            background: var(--bg-console); border: 1px solid var(--border);
+            overflow: hidden; text-align: left; max-width: 650px; margin: 0 auto;
+        }
+        .code-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 16px; background: var(--bg-titlebar);
+            border-bottom: 1px solid var(--border);
+        }
+        .code-dots { display: flex; gap: 6px; }
+        .code-dots span { width: 10px; height: 10px; border-radius: 50%; }
+        .code-dots span:nth-child(1) { background: #ff5f57; }
+        .code-dots span:nth-child(2) { background: #ffbd2e; }
+        .code-dots span:nth-child(3) { background: #28c840; }
+        .code-title { font-size: 11px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+        .code-copy {
+            background: var(--bg-tertiary); border: 1px solid var(--border);
+            color: var(--text-secondary); padding: 3px 10px; border-radius: 2px;
+            font-size: 10px; cursor: pointer; transition: all 0.15s;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .code-copy:hover { background: var(--primary); color: white; border-color: var(--primary); }
+        .code-body { padding: 16px; overflow-x: auto; }
+        .code-body pre {
+            font-family: 'JetBrains Mono', monospace; font-size: 12px;
+            line-height: 1.8; color: var(--text-secondary);
+        }
+        .code-keyword { color: #c678dd; }
+        .code-string { color: #98c379; }
+        .code-func { color: #61afef; }
+        .code-comment { color: #5c6370; font-style: italic; }
+        .code-number { color: #d19a66; }
+        .code-variable { color: #e5c07b; }
+
+        /* Sections */
+        .section { position: relative; z-index: 1; padding: 90px 30px; }
+        .section-container { max-width: 1200px; margin: 0 auto; }
+        .section-header { text-align: center; margin-bottom: 60px; }
+        .section-tag {
+            display: inline-block; font-size: 11px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 3px; color: var(--primary);
+            margin-bottom: 12px; font-family: 'JetBrains Mono', monospace;
+        }
+        .section-title {
+            font-size: clamp(28px,4vw,42px); font-weight: 800;
+            margin-bottom: 14px; letter-spacing: -1px;
+        }
+        .section-subtitle { font-size: 15px; color: var(--text-secondary); max-width: 550px; margin: 0 auto; }
+        .section-divider { height: 1px; background: var(--border); max-width: 1200px; margin: 0 auto; }
+
+        /* Feature Grid */
+        .features-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2px;
+        }
+        .feature-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            padding: 30px; transition: all 0.15s; position: relative;
+        }
+        .feature-card::before {
+            content: ''; position: absolute; top: 0; left: 0;
+            width: 0; height: 2px; background: var(--primary); transition: width 0.25s;
+        }
+        .feature-card:hover { background: var(--bg-card-hover); }
+        .feature-card:hover::before { width: 100%; }
+        .feature-icon {
+            font-size: 13px; font-weight: 700; font-family: 'JetBrains Mono', monospace;
+            padding: 4px 10px; border-radius: 2px; display: inline-block; margin-bottom: 16px;
+        }
+        .feature-icon.blue { background: rgba(0,120,215,0.1); color: var(--primary); border: 1px solid rgba(0,120,215,0.2); }
+        .feature-icon.green { background: rgba(0,200,80,0.1); color: var(--success); border: 1px solid rgba(0,200,80,0.2); }
+        .feature-icon.yellow { background: rgba(255,180,40,0.1); color: var(--warning); border: 1px solid rgba(255,180,40,0.2); }
+        .feature-icon.red { background: rgba(255,80,80,0.1); color: var(--error); border: 1px solid rgba(255,80,80,0.2); }
+        .feature-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+        .feature-card p { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+        .feature-card code {
+            font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--primary);
+        }
+        .feature-tag {
+            display: inline-block; font-size: 10px; font-weight: 700;
+            font-family: 'JetBrains Mono', monospace; padding: 2px 8px;
+            border-radius: 2px; margin-top: 12px; text-transform: uppercase; letter-spacing: 1px;
+        }
+        .feature-tag.core { background: rgba(0,120,215,0.1); color: var(--primary); border: 1px solid rgba(0,120,215,0.15); }
+        .feature-tag.event { background: rgba(0,200,80,0.1); color: var(--success); border: 1px solid rgba(0,200,80,0.15); }
+
+        /* Elements Grid */
+        .elements-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 2px;
+        }
+        .element-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            padding: 24px; transition: all 0.15s;
+        }
+        .element-card:hover { background: var(--bg-card-hover); }
+        .element-preview {
+            background: var(--bg-console); border: 1px solid var(--border);
+            padding: 14px; margin-bottom: 14px; min-height: 50px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .element-card h4 { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+        .element-card p { font-size: 12px; color: var(--text-muted); }
+        .element-card .api-method {
+            font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--primary);
+            background: rgba(0,120,215,0.08); border: 1px solid rgba(0,120,215,0.15);
+            padding: 2px 8px; border-radius: 2px; display: inline-block; margin-top: 8px;
+        }
+
+        /* Mock elements */
+        .mock-btn {
+            background: var(--bg-tertiary); border: 1px solid var(--border);
+            color: var(--text-primary); padding: 6px 20px; font-size: 13px;
+            font-family: 'Inter', sans-serif; cursor: pointer; transition: background 0.15s;
+        }
+        .mock-btn:hover { background: var(--bg-active); }
+        .mock-toggle-row { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 0 4px; }
+        .mock-toggle-label { font-size: 13px; color: var(--text-primary); }
+        .mock-checkbox {
+            width: 16px; height: 16px; background: var(--primary); border: 1px solid var(--primary);
+            display: flex; align-items: center; justify-content: center; font-size: 11px; color: white;
+        }
+        .mock-checkbox.off { background: var(--bg-dark); border-color: var(--border); color: transparent; }
+        .mock-slider-track { width: 180px; height: 4px; background: var(--bg-dark); border: 1px solid var(--border); position: relative; }
+        .mock-slider-fill { width: 60%; height: 100%; background: var(--primary); position: absolute; top: 0; left: 0; }
+        .mock-slider-knob { width: 8px; height: 12px; background: white; position: absolute; top: 50%; left: 58%; transform: translateY(-50%); }
+        .mock-slider-val { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--primary); margin-left: 10px; }
+        .mock-input {
+            background: var(--bg-dark); border: 1px solid var(--border); padding: 4px 10px;
+            color: var(--text-muted); font-size: 12px; font-family: 'JetBrains Mono', monospace; width: 160px;
+        }
+        .mock-dropdown-box {
+            background: var(--bg-tertiary); border: 1px solid var(--border);
+            padding: 6px 0; width: 160px; display: flex; align-items: center; justify-content: space-between;
+        }
+        .mock-dropdown-box span:first-child {
+            font-size: 12px; color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace; padding-left: 8px;
+        }
+        .mock-dropdown-box .arrow {
+            font-size: 11px; color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace; padding-right: 8px;
+        }
+        .mock-keybind-btn {
+            background: var(--bg-dark); border: 1px solid var(--border);
+            padding: 3px 12px; font-family: 'JetBrains Mono', monospace;
+            font-size: 11px; color: var(--text-secondary);
+        }
+        .mock-colorpicker { display: flex; align-items: center; gap: 10px; }
+        .mock-color-swatch { width: 36px; height: 16px; border: 1px solid var(--border); }
+        .mock-color-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-secondary); }
+        .mock-label-row {
+            background: var(--bg-console); border: 1px solid var(--border); padding: 4px 10px;
+            font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-secondary); width: 100%;
+        }
+        .mock-section-header {
+            background: var(--bg-titlebar); border: 1px solid var(--border);
+            padding: 3px 10px; width: 100%; position: relative;
+        }
+        .mock-section-header::before {
+            content: ''; position: absolute; top: 0; left: 0;
+            width: 100%; height: 1px; background: var(--primary);
+        }
+        .mock-section-header span { font-size: 11px; color: var(--text-secondary); font-weight: 600; }
+        .mock-separator { width: 100%; height: 1px; background: var(--border); }
+        .mock-notification {
+            background: var(--bg-card); border: 1px solid var(--border);
+            padding: 8px 12px; position: relative; width: 100%;
+        }
+        .mock-notification .notif-bar { position: absolute; left: 0; top: 0; width: 2px; height: 100%; }
+        .mock-notification .notif-icon { font-family: 'JetBrains Mono', monospace; font-size: 11px; margin-bottom: 2px; }
+        .mock-notification .notif-title { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+        .mock-notification .notif-msg { font-size: 11px; color: var(--text-secondary); }
+        .mock-notification .notif-progress { position: absolute; bottom: 0; left: 0; height: 1px; width: 60%; }
+
+        /* Showcase */
+        .showcase-window {
+            background: var(--bg-card); border: 1px solid var(--border);
+            overflow: hidden; max-width: 520px; margin: 0 auto;
+        }
+        .showcase-titlebar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 8px; height: 34px; background: var(--bg-titlebar);
+            border-bottom: 1px solid var(--border);
+        }
+        .showcase-titlebar-text { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+        .showcase-titlebar-btns { display: flex; gap: 4px; }
+        .showcase-titlebar-btns span {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 36px; height: 22px; background: var(--bg-tertiary);
+            border: 1px solid var(--border); font-size: 13px; color: var(--text-primary);
+            cursor: pointer; transition: background 0.15s;
+        }
+        .showcase-titlebar-btns span:hover { background: var(--bg-active); }
+        .showcase-titlebar-btns .close-btn:hover { color: var(--error); }
+        .showcase-tabbar {
+            display: flex; background: var(--bg-card); border-bottom: 1px solid var(--border);
+        }
+        .showcase-tab {
+            padding: 6px 16px; font-size: 13px; color: var(--text-secondary);
+            cursor: pointer; position: relative; transition: all 0.15s;
+            border: none; background: none; font-family: 'Inter', sans-serif;
+        }
+        .showcase-tab.active { color: var(--text-primary); background: var(--bg-active); }
+        .showcase-tab.active::after {
+            content: ''; position: absolute; bottom: 0; left: 0;
+            width: 100%; height: 2px; background: var(--primary);
+        }
+        .showcase-content { padding: 6px 8px; }
+        .showcase-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 6px 8px; background: var(--bg-tertiary); border: 1px solid var(--border); margin-bottom: 0;
+        }
+        .showcase-row + .showcase-row { border-top: none; }
+        .showcase-row-label { font-size: 13px; color: var(--text-primary); }
+        .showcase-row-desc { font-size: 11px; color: var(--text-secondary); }
+
+        /* Events */
+        .events-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 2px;
+        }
+        .event-card { background: var(--bg-card); border: 1px solid var(--border); padding: 20px; }
+        .event-name { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; color: var(--success); margin-bottom: 6px; }
+        .event-params { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted); margin-bottom: 8px; }
+        .event-desc { font-size: 12px; color: var(--text-secondary); }
+
+        /* API */
+        .api-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 2px;
+        }
+        .api-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            padding: 24px; transition: background 0.15s;
+        }
+        .api-card:hover { background: var(--bg-card-hover); }
+        .api-card .api-signature {
+            font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--primary);
+            background: rgba(0,120,215,0.06); border: 1px solid rgba(0,120,215,0.12);
+            padding: 8px 12px; margin-bottom: 12px; overflow-x: auto; white-space: nowrap;
+        }
+        .api-card .api-desc { font-size: 13px; color: var(--text-secondary); margin-bottom: 10px; }
+        .api-card .api-params { font-size: 12px; color: var(--text-muted); line-height: 1.8; }
+        .api-card .api-params code {
+            font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--primary-light);
+        }
+        .api-card .api-returns {
+            font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--warning);
+            margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border);
+        }
+
+        /* Theme Colors */
+        .theme-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 2px; max-width: 800px; margin: 0 auto;
+        }
+        .theme-color {
+            background: var(--bg-card); border: 1px solid var(--border);
+            padding: 16px; display: flex; align-items: center; gap: 12px;
+        }
+        .theme-color .swatch { width: 32px; height: 32px; border: 1px solid var(--border); flex-shrink: 0; }
+        .theme-color .color-name { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+        .theme-color .color-value { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-muted); }
+
+        /* Download */
+        .download-cards {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+            gap: 20px; max-width: 850px; margin: 0 auto;
+        }
+        .download-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            padding: 36px; transition: all 0.15s; position: relative;
+        }
+        .download-card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px; }
+        .download-card.devs::before { background: var(--success); }
+        .download-card.exploiters::before { background: var(--primary); }
+        .download-card:hover { border-color: var(--bg-active); }
+        .download-card .card-label {
+            font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px;
+        }
+        .download-card.devs .card-label { color: var(--success); }
+        .download-card.exploiters .card-label { color: var(--primary); }
+        .download-card h3 { font-size: 22px; font-weight: 800; margin-bottom: 10px; }
+        .download-card p { color: var(--text-secondary); font-size: 13px; margin-bottom: 24px; line-height: 1.6; }
+        .download-card .feature-list { list-style: none; margin-bottom: 24px; }
+        .download-card .feature-list li {
+            font-size: 13px; color: var(--text-secondary); padding: 6px 0;
+            display: flex; align-items: center; gap: 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+        .download-card .feature-list li:last-child { border-bottom: none; }
+        .download-card .feature-list .check {
+            color: var(--success); font-family: 'JetBrains Mono', monospace;
+            font-size: 12px; font-weight: 700;
+        }
+        .loadstring-box {
+            background: var(--bg-console); border: 1px solid var(--border);
+            padding: 12px; margin-top: 14px; position: relative;
+        }
+        .loadstring-box code {
+            font-family: 'JetBrains Mono', monospace; font-size: 10px;
+            color: var(--text-secondary); word-break: break-all;
+            display: block; line-height: 1.6; padding-right: 50px;
+        }
+        .copy-loadstring {
+            position: absolute; top: 8px; right: 8px;
+            background: var(--bg-tertiary); border: 1px solid var(--border);
+            color: var(--text-secondary); padding: 2px 8px; font-size: 10px;
+            cursor: pointer; transition: all 0.15s; font-family: 'JetBrains Mono', monospace;
+        }
+        .copy-loadstring:hover { background: var(--primary); color: white; border-color: var(--primary); }
+
+        /* Commit Info */
+        .commit-bar {
+            background: var(--bg-console); border: 1px solid var(--border);
+            padding: 12px 20px; max-width: 650px; margin: 24px auto 0;
+            display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+            animation: fadeInUp 0.6s ease 0.55s both;
+        }
+        .commit-bar .commit-label {
+            font-family: 'JetBrains Mono', monospace; font-size: 10px;
+            font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+            color: var(--text-muted); white-space: nowrap;
+        }
+        .commit-bar .commit-msg {
+            font-family: 'JetBrains Mono', monospace; font-size: 12px;
+            color: var(--primary); flex: 1; min-width: 0;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .commit-bar .commit-sha {
+            font-family: 'JetBrains Mono', monospace; font-size: 10px;
+            color: var(--text-muted); white-space: nowrap;
+        }
+        .commit-bar .commit-date {
+            font-family: 'JetBrains Mono', monospace; font-size: 10px;
+            color: var(--text-muted); white-space: nowrap;
+        }
+
+        /* FAQ */
+        .faq-list { max-width: 680px; margin: 0 auto; }
+        .faq-item {
+            background: var(--bg-card); border: 1px solid var(--border);
+            margin-bottom: 2px; overflow: hidden;
+        }
+        .faq-question {
+            padding: 18px 24px; font-size: 14px; font-weight: 600;
+            cursor: pointer; display: flex; align-items: center;
+            justify-content: space-between; transition: all 0.15s;
+        }
+        .faq-question:hover { background: var(--bg-card-hover); }
+        .faq-toggle {
+            font-family: 'JetBrains Mono', monospace; font-size: 16px;
+            color: var(--primary); transition: transform 0.25s;
+        }
+        .faq-answer { max-height: 0; overflow: hidden; transition: max-height 0.35s ease; }
+        .faq-answer-content {
+            padding: 0 24px 18px; font-size: 13px; color: var(--text-secondary); line-height: 1.7;
+        }
+        .faq-answer-content code {
+            font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--primary);
+            background: rgba(0,120,215,0.08); padding: 1px 6px;
+        }
+        .faq-item.active .faq-toggle { transform: rotate(45deg); }
+        .faq-item.active .faq-answer { max-height: 400px; }
+
+        /* CTA */
+        .cta-section { text-align: center; padding: 100px 30px; position: relative; }
+        .cta-bg {
+            position: absolute; inset: 0;
+            background: radial-gradient(ellipse at center, rgba(0,120,215,0.06), transparent 70%);
+            pointer-events: none;
+        }
+        .cta-content { position: relative; z-index: 1; }
+        .cta-content h2 {
+            font-size: clamp(30px,4vw,44px); font-weight: 800;
+            margin-bottom: 16px; letter-spacing: -1px;
+        }
+        .cta-content p {
+            font-size: 16px; color: var(--text-secondary);
+            margin-bottom: 32px; max-width: 480px; margin-left: auto; margin-right: auto;
+        }
+
+        /* Footer */
+        .footer {
+            position: relative; z-index: 1;
+            border-top: 1px solid var(--border); padding: 40px 30px 24px;
+        }
+        .footer-container {
+            max-width: 1200px; margin: 0 auto;
+            display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 40px;
+        }
+        .footer-brand p { font-size: 13px; color: var(--text-muted); margin-top: 12px; line-height: 1.6; }
+        .footer-col h4 {
+            font-size: 12px; font-weight: 700; margin-bottom: 16px; color: var(--text-primary);
+            text-transform: uppercase; letter-spacing: 1px; font-family: 'JetBrains Mono', monospace;
+        }
+        .footer-col a {
+            display: block; color: var(--text-muted); text-decoration: none;
+            font-size: 13px; padding: 4px 0; transition: color 0.15s;
+        }
+        .footer-col a:hover { color: var(--primary); }
+        .footer-bottom {
+            max-width: 1200px; margin: 30px auto 0; padding-top: 20px;
+            border-top: 1px solid var(--border); display: flex;
+            align-items: center; justify-content: space-between;
+            font-size: 12px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;
+        }
+        #footer-version { color: var(--primary); }
+
+        /* Animations */
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .reveal { opacity: 0; transform: translateY(20px); transition: all 0.6s ease; }
+        .reveal.visible { opacity: 1; transform: translateY(0); }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none; position: fixed; inset: 0;
+                background: rgba(24,24,24,0.98); flex-direction: column;
+                justify-content: center; align-items: center; gap: 24px; z-index: 999;
+            }
+            .nav-links.active { display: flex; }
+            .hamburger { display: flex; z-index: 1001; }
+            .hero-stats { gap: 24px; }
+            .features-grid, .elements-grid, .events-grid, .api-grid { grid-template-columns: 1fr; }
+            .download-cards { grid-template-columns: 1fr; }
+            .footer-container { grid-template-columns: 1fr 1fr; gap: 24px; }
+            .footer-bottom { flex-direction: column; gap: 12px; text-align: center; }
+            .theme-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+            .showcase-window { max-width: 100%; }
+            .commit-bar { flex-direction: column; align-items: flex-start; gap: 6px; }
+        }
+        @media (max-width: 480px) {
+            .hero-buttons { flex-direction: column; align-items: center; }
+            .btn { width: 100%; max-width: 260px; justify-content: center; }
+            .hero-stats { flex-direction: column; gap: 16px; }
+            .footer-container { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-grid"></div>
+    <div class="floating-orbs">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+
+    <!-- Nav -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="#" class="nav-logo">
+                <div class="logo-icon">B</div>
+                <span class="logo-text">blocky</span>
+            </a>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#elements">Elements</a></li>
+                <li><a href="#api">API</a></li>
+                <li><a href="#events">Events</a></li>
+                <li><a href="#theme">Theme</a></li>
+                <li><a href="#faq">FAQ</a></li>
+                <li><a href="#download" class="nav-cta">Get Blocky</a></li>
+            </ul>
+            <button class="hamburger" id="hamburger" onclick="toggleMenu()">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="hero-badge">
+                <span class="dot"></span>
+                <span id="version-text" class="loading">fetching latest commit...</span>
+            </div>
+            <h1>The <span class="accent">minimal</span> UI library<br>for Roblox</h1>
+            <p class="hero-subtitle">
+                A clean, dark-themed UI framework with resizable windows, tabbed navigation,
+                12 built-in elements, a full event system, and runtime accent color theming.
+            </p>
+            <div class="hero-buttons">
+                <a href="#download" class="btn btn-primary">Get Started</a>
+                <a href="#api" class="btn btn-secondary">View API Reference</a>
+            </div>
+            <div class="hero-stats">
+                <div class="stat">
+                    <div class="stat-number">12</div>
+                    <div class="stat-label">UI Elements</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number">13</div>
+                    <div class="stat-label">Events</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number">13</div>
+                    <div class="stat-label">Theme Colors</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number">2</div>
+                    <div class="stat-label">Versions</div>
+                </div>
+            </div>
+
+            <!-- Commit Info Bar -->
+            <div class="commit-bar" id="commitBar" style="display:none;">
+                <span class="commit-label">Latest</span>
+                <span class="commit-msg" id="commitMsg"></span>
+                <span class="commit-sha" id="commitSha"></span>
+                <span class="commit-date" id="commitDate"></span>
+            </div>
+
+            <div class="hero-code">
+                <div class="code-window">
+                    <div class="code-header">
+                        <div class="code-dots"><span></span><span></span><span></span></div>
+                        <span class="code-title">quickstart.lua</span>
+                        <button class="code-copy" onclick="copyCode(this, 'heroCode')">Copy</button>
+                    </div>
+                    <div class="code-body">
+                        <pre id="heroCode"><span class="code-keyword">local</span> <span class="code-variable">blocky</span> = <span class="code-func">loadstring</span>(<span class="code-func">game:HttpGet</span>(<span class="code-string">"URL"</span>))()
+
+<span class="code-keyword">local</span> <span class="code-variable">window</span> = <span class="code-variable">blocky</span>.<span class="code-func">new</span>(<span class="code-string">"My Script"</span>, {
+    <span class="code-variable">toggleKey</span> = Enum.KeyCode.RightShift,
+    <span class="code-variable">accentColor</span> = Color3.fromRGB(<span class="code-number">0</span>, <span class="code-number">120</span>, <span class="code-number">215</span>)
+})
+
+<span class="code-keyword">local</span> <span class="code-variable">tab</span> = <span class="code-variable">window</span>:<span class="code-func">addTab</span>(<span class="code-string">"Main"</span>)
+<span class="code-variable">window</span>:<span class="code-func">addSection</span>(<span class="code-variable">tab</span>, <span class="code-string">"Controls"</span>)
+
+<span class="code-variable">window</span>:<span class="code-func">addButton</span>(<span class="code-variable">tab</span>, <span class="code-string">"Click Me"</span>, <span class="code-string">"Description"</span>, <span class="code-keyword">function</span>()
+    <span class="code-func">print</span>(<span class="code-string">"Hello from Blocky!"</span>)
+<span class="code-keyword">end</span>)
+
+<span class="code-variable">window</span>:<span class="code-func">addToggle</span>(<span class="code-variable">tab</span>, <span class="code-string">"Auto Farm"</span>, <span class="code-keyword">false</span>, <span class="code-keyword">function</span>(<span class="code-variable">state</span>)
+    <span class="code-func">print</span>(<span class="code-string">"Toggle:"</span>, <span class="code-variable">state</span>)
+<span class="code-keyword">end</span>)
+
+<span class="code-variable">window</span>:<span class="code-func">addSlider</span>(<span class="code-variable">tab</span>, <span class="code-string">"Speed"</span>, {
+    <span class="code-variable">min</span> = <span class="code-number">0</span>, <span class="code-variable">max</span> = <span class="code-number">100</span>,
+    <span class="code-variable">default</span> = <span class="code-number">16</span>, <span class="code-variable">suffix</span> = <span class="code-string">" studs"</span>
+}, <span class="code-keyword">function</span>(<span class="code-variable">v</span>) <span class="code-func">print</span>(<span class="code-variable">v</span>) <span class="code-keyword">end</span>)</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- Features -->
+    <section class="section" id="features">
+        <div class="section-container">
+            <div class="section-header reveal">
+                <span class="section-tag">Features</span>
+                <h2 class="section-title">What's Included</h2>
+                <p class="section-subtitle">Every feature built into Blocky, extracted directly from source.</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card reveal">
+                    <div class="feature-icon blue">WIN</div>
+                    <h3>Draggable & Resizable Windows</h3>
+                    <p>Full window management with title bar dragging and 8-directional edge resizing. Minimum size enforcement (380×280) with smooth repositioning.</p>
+                    <span class="feature-tag core">Core</span>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon blue">TAB</div>
+                    <h3>Tabbed Navigation</h3>
+                    <p>Horizontal tab bar with animated underline indicators. Auto-selects first tab. Each tab has its own scrollable content area with auto-sizing canvas.</p>
+                    <span class="feature-tag core">Core</span>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon blue">TWN</div>
+                    <h3>Tween Animations</h3>
+                    <p>Three tween speeds — fast (0.15s), medium (0.25s), slow (0.35s) — all using Quad easing. Every hover, click, and state change is smoothly animated.</p>
+                    <span class="feature-tag core">Core</span>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon green">ACC</div>
+                    <h3>Runtime Accent Theming</h3>
+                    <p>Call <code>window:setAccent(color)</code> to change accent color across all elements at runtime. Internal listener system propagates changes automatically.</p>
+                    <span class="feature-tag event">Event</span>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon green">EVT</div>
+                    <h3>Global Event System</h3>
+                    <p>13 named events via <code>blocky.on(name, callback)</code> — from button clicks and toggle changes to keybind fires and window state changes.</p>
+                    <span class="feature-tag event">Event</span>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon yellow">NTF</div>
+                    <h3>Notification System</h3>
+                    <p>Toast-style popups with 4 types — info, success, error, warning — each with its own accent color, icon, progress bar, and configurable duration.</p>
+                    <span class="feature-tag core">Core</span>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon blue">MIN</div>
+                    <h3>Minimize & Close</h3>
+                    <p>Title bar buttons for minimizing (collapses to title bar height with animation) and closing (shrinks to zero then destroys). Both fire events.</p>
+                    <span class="feature-tag core">Core</span>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon blue">TGL</div>
+                    <h3>Toggle Key Visibility</h3>
+                    <p>Set an optional <code>toggleKey</code> to show/hide the entire window with a single keypress. Respects gameProcessedEvent to avoid conflicts.</p>
+                    <span class="feature-tag core">Core</span>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon blue">THM</div>
+                    <h3>13-Color Theme System</h3>
+                    <p>BASE_THEME defines Background, Secondary, Tertiary, Active, Accent, Text, SubText, Error, Success, Warning, Border, TitleBar, and Console colors.</p>
+                    <span class="feature-tag core">Core</span>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon red">CLR</div>
+                    <h3>HSV Color Picker</h3>
+                    <p>Full color picker with hue wheel (ring), saturation/value square, draggable knobs, and hex input. Opens as a floating panel anchored to the element.</p>
+                    <span class="feature-tag core">Core</span>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon yellow">KEY</div>
+                    <h3>Rebindable Keybinds</h3>
+                    <p>Click to enter listening mode, press any key to bind. Fires callback when the bound key is pressed during gameplay. Displays current key in bracket notation.</p>
+                    <span class="feature-tag core">Core</span>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon blue">RET</div>
+                    <h3>Return Objects with :set()</h3>
+                    <p>Toggle, Slider, Dropdown, and ColorPicker all return objects with a <code>.value</code> property and a <code>:set()</code> method for programmatic control.</p>
+                    <span class="feature-tag core">Core</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- Elements -->
+    <section class="section" id="elements">
+        <div class="section-container">
+            <div class="section-header reveal">
+                <span class="section-tag">Elements</span>
+                <h2 class="section-title">12 UI Components</h2>
+                <p class="section-subtitle">Every element available in Blocky, matching the exact API.</p>
+            </div>
+            <div class="elements-grid">
+                <div class="element-card reveal">
+                    <div class="element-preview"><button class="mock-btn">Click Me</button></div>
+                    <h4>Button</h4>
+                    <p>Clickable row with label, optional description, flash animation on click</p>
+                    <span class="api-method">:addButton(tab, label, desc?, callback?)</span>
+                </div>
+                <div class="element-card reveal">
+                    <div class="element-preview">
+                        <div class="mock-toggle-row">
+                            <span class="mock-toggle-label">Auto Farm</span>
+                            <div class="mock-checkbox">✓</div>
+                        </div>
+                    </div>
+                    <h4>Toggle</h4>
+                    <p>Checkbox with accent-colored fill, checkmark, optional desc. Returns {value, :set()}</p>
+                    <span class="api-method">:addToggle(tab, label, desc?, default?, cb?)</span>
+                </div>
+                <div class="element-card reveal">
+                    <div class="element-preview">
+                        <div style="display:flex;align-items:center;">
+                            <div class="mock-slider-track">
+                                <div class="mock-slider-fill"></div>
+                                <div class="mock-slider-knob"></div>
+                            </div>
+                            <span class="mock-slider-val">60 studs</span>
+                        </div>
+                    </div>
+                    <h4>Slider</h4>
+                    <p>Draggable track with fill, knob, value label. Config: min, max, default, suffix</p>
+                    <span class="api-method">:addSlider(tab, label, desc?, config, cb?)</span>
+                </div>
+                <div class="element-card reveal">
+                    <div class="element-preview">
+                        <div class="mock-dropdown-box">
+                            <span>Option 1</span>
+                            <span class="arrow">v</span>
+                        </div>
+                    </div>
+                    <h4>Dropdown</h4>
+                    <p>Expandable menu with animated open/close, highlighted selection, arrow indicator</p>
+                    <span class="api-method">:addDropdown(tab, label, desc?, opts, def?, cb?)</span>
+                </div>
+                <div class="element-card reveal">
+                    <div class="element-preview">
+                        <div class="mock-input">Enter value...</div>
+                    </div>
+                    <h4>Text Input</h4>
+                    <p>TextBox with placeholder, focus highlight, fires callback on Enter press</p>
+                    <span class="api-method">:addInput(tab, label, desc?, placeholder?, cb?)</span>
+                </div>
+                <div class="element-card reveal">
+                    <div class="element-preview">
+                        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;padding:0 4px;">
+                            <span style="font-size:13px;color:var(--text-primary);">Toggle ESP</span>
+                            <span class="mock-keybind-btn">[E]</span>
+                        </div>
+                    </div>
+                    <h4>Keybind</h4>
+                    <p>Click to listen, press key to bind. Fires callback on keypress. Shows [KeyName]</p>
+                    <span class="api-method">:addKeybind(tab, label, desc?, default?, cb?)</span>
+                </div>
+                <div class="element-card reveal">
+                    <div class="element-preview">
+                        <div class="mock-colorpicker">
+                            <span style="font-size:13px;color:var(--text-primary);">Accent</span>
+                            <div class="mock-color-swatch" style="background:#0078D7;"></div>
+                            <span class="mock-color-label">#0078D7</span>
+                        </div>
+                    </div>
+                    <h4>Color Picker</h4>
+                    <p>Preview swatch opens floating picker with hue wheel, SV square, hex input</p>
+                    <span class="api-method">:addColorPicker(tab, label, desc?, def?, cb?)</span>
+                </div>
+                <div class="element-card reveal">
+                    <div class="element-preview">
+                        <div class="mock-section-header"><span>COMBAT SETTINGS</span></div>
+                    </div>
+                    <h4>Section Header</h4>
+                    <p>TitleBar-colored row with accent top line animation and semibold label</p>
+                    <span class="api-method">:addSection(tab, label)</span>
+                </div>
+                <div class="element-card reveal">
+                    <div class="element-preview">
+                        <div class="mock-label-row">  v1.0.0 — blocky</div>
+                    </div>
+                    <h4>Label</h4>
+                    <p>Read-only console-styled text row with Code font on dark background</p>
+                    <span class="api-method">:addLabel(tab, text)</span>
+                </div>
+                <div class="element-card reveal">
+                    <div class="element-preview">
+                        <div style="width:100%;padding:10px 0;"><div class="mock-separator"></div></div>
+                    </div>
+                    <h4>Separator</h4>
+                    <p>1px horizontal divider line using Border color</p>
+                    <span class="api-method">:addSeparator(tab)</span>
+                </div>
+                <div class="element-card reveal">
+                    <div class="element-preview">
+                        <div class="mock-notification">
+                            <div class="notif-bar" style="background:var(--success)"></div>
+                            <div style="padding-left:12px;">
+                                <div class="notif-icon" style="color:var(--success)">[+]</div>
+                                <div class="notif-title">Saved</div>
+                                <div class="notif-msg">Config saved successfully</div>
+                            </div>
+                            <div class="notif-progress" style="background:var(--success)"></div>
+                        </div>
+                    </div>
+                    <h4>Notification</h4>
+                    <p>Toast with type icon [i]/[+]/[-]/[!], accent bar, progress bar, auto-dismiss</p>
+                    <span class="api-method">blocky.notify(title, msg, type?, dur?)</span>
+                </div>
+                <div class="element-card reveal">
+                    <div class="element-preview">
+                        <div style="background:var(--bg-titlebar);border:1px solid var(--border);padding:6px 8px;display:flex;align-items:center;justify-content:space-between;width:100%;">
+                            <span style="font-size:13px;font-weight:600;color:var(--text-primary);">My Script</span>
+                            <div style="display:flex;gap:4px;">
+                                <span style="background:var(--bg-tertiary);border:1px solid var(--border);padding:2px 8px;font-size:11px;color:var(--text-primary);">_</span>
+                                <span style="background:var(--bg-tertiary);border:1px solid var(--border);padding:2px 8px;font-size:11px;color:var(--text-primary);">X</span>
+                            </div>
+                        </div>
+                    </div>
+                    <h4>Window</h4>
+                    <p>Main container with title bar, drag, 8-dir resize, minimize, close, toggle key</p>
+                    <span class="api-method">blocky.new(title, options?)</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- Preview -->
+    <section class="section" id="preview">
+        <div class="section-container">
+            <div class="section-header reveal">
+                <span class="section-tag">Preview</span>
+                <h2 class="section-title">See It In Action</h2>
+                <p class="section-subtitle">A faithful recreation of how Blocky looks in-game.</p>
+            </div>
+            <div class="showcase-window reveal">
+                <div class="showcase-titlebar">
+                    <span class="showcase-titlebar-text">My Script Hub</span>
+                    <div class="showcase-titlebar-btns">
+                        <span>_</span>
+                        <span class="close-btn">X</span>
+                    </div>
+                </div>
+                <div class="showcase-tabbar">
+                    <button class="showcase-tab active">Main</button>
+                    <button class="showcase-tab">Combat</button>
+                    <button class="showcase-tab">Visuals</button>
+                    <button class="showcase-tab">Settings</button>
+                </div>
+                <div class="showcase-content">
+                    <div style="background:var(--bg-titlebar);border:1px solid var(--border);padding:3px 10px;position:relative;">
+                        <div style="position:absolute;top:0;left:0;width:100%;height:1px;background:var(--primary);"></div>
+                        <span style="font-size:11px;color:var(--text-secondary);font-weight:600;">  GENERAL</span>
+                    </div>
+                    <div class="showcase-row">
+                        <div>
+                            <div class="showcase-row-label">Initialize</div>
+                            <div class="showcase-row-desc">Set up all remote connections</div>
+                        </div>
+                    </div>
+                    <div class="showcase-row">
+                        <div>
+                            <div class="showcase-row-label">Auto Farm</div>
+                            <div class="showcase-row-desc">Automatically farms nearby NPCs</div>
+                        </div>
+                        <div class="mock-checkbox">✓</div>
+                    </div>
+                    <div class="showcase-row">
+                        <div><div class="showcase-row-label">God Mode</div></div>
+                        <div class="mock-checkbox off">✓</div>
+                    </div>
+                    <div class="showcase-row" style="flex-wrap:wrap;gap:6px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+                            <div class="showcase-row-label">Walk Speed</div>
+                            <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--primary);">16 studs</span>
+                        </div>
+                        <div style="width:100%;height:4px;background:var(--bg-dark);border:1px solid var(--border);position:relative;">
+                            <div style="width:32%;height:100%;background:var(--primary);"></div>
+                            <div style="width:8px;height:12px;background:white;position:absolute;top:50%;left:30%;transform:translateY(-50%);"></div>
+                        </div>
+                    </div>
+                    <div class="showcase-row">
+                        <div class="showcase-row-label">Target</div>
+                        <div style="display:flex;align-items:center;gap:4px;">
+                            <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-secondary);">Nearest</span>
+                            <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted);">v</span>
+                        </div>
+                    </div>
+                    <div class="showcase-row">
+                        <div class="showcase-row-label">Toggle ESP</div>
+                        <span style="background:var(--bg-dark);border:1px solid var(--border);padding:2px 10px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-secondary);">[E]</span>
+                    </div>
+                    <div class="showcase-row">
+                        <div class="showcase-row-label">ESP Color</div>
+                        <div style="width:36px;height:16px;background:#0078D7;border:1px solid var(--border);"></div>
+                    </div>
+                    <div style="height:1px;background:var(--border);"></div>
+                    <div style="background:var(--bg-console);border:1px solid var(--border);padding:4px 10px;">
+                        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-secondary);" id="showcase-label">  blocky</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- Events -->
+    <section class="section" id="events">
+        <div class="section-container">
+            <div class="section-header reveal">
+                <span class="section-tag">Events</span>
+                <h2 class="section-title">13 Global Events</h2>
+                <p class="section-subtitle">Register listeners with <code style="font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--primary)">blocky.on(name, callback)</code></p>
+            </div>
+            <div class="events-grid">
+                <div class="event-card reveal">
+                    <div class="event-name">"notifyFired"</div>
+                    <div class="event-params">(title, message, type, duration)</div>
+                    <div class="event-desc">Fires when a notification is shown</div>
+                </div>
+                <div class="event-card reveal">
+                    <div class="event-name">"windowClosed"</div>
+                    <div class="event-params">(title)</div>
+                    <div class="event-desc">Fires when X button is clicked</div>
+                </div>
+                <div class="event-card reveal">
+                    <div class="event-name">"windowMinimized"</div>
+                    <div class="event-params">(title, minimized)</div>
+                    <div class="event-desc">Fires on minimize/restore toggle</div>
+                </div>
+                <div class="event-card reveal">
+                    <div class="event-name">"windowToggled"</div>
+                    <div class="event-params">(title, visible)</div>
+                    <div class="event-desc">Fires when toggleKey shows/hides window</div>
+                </div>
+                <div class="event-card reveal">
+                    <div class="event-name">"tabSwitched"</div>
+                    <div class="event-params">(name)</div>
+                    <div class="event-desc">Fires when a tab button is clicked</div>
+                </div>
+                <div class="event-card reveal">
+                    <div class="event-name">"buttonClicked"</div>
+                    <div class="event-params">(label)</div>
+                    <div class="event-desc">Fires when any button element is clicked</div>
+                </div>
+                <div class="event-card reveal">
+                    <div class="event-name">"toggleChanged"</div>
+                    <div class="event-params">(label, state)</div>
+                    <div class="event-desc">Fires when a toggle's state changes</div>
+                </div>
+                <div class="event-card reveal">
+                    <div class="event-name">"dropdownChanged"</div>
+                    <div class="event-params">(label, selected)</div>
+                    <div class="event-desc">Fires when a dropdown selection changes</div>
+                </div>
+                <div class="event-card reveal">
+                    <div class="event-name">"inputSubmitted"</div>
+                    <div class="event-params">(label, text)</div>
+                    <div class="event-desc">Fires when Enter is pressed in a text input</div>
+                </div>
+                <div class="event-card reveal">
+                    <div class="event-name">"keybindChanged"</div>
+                    <div class="event-params">(label, key)</div>
+                    <div class="event-desc">Fires when a keybind is rebound to a new key</div>
+                </div>
+                <div class="event-card reveal">
+                    <div class="event-name">"keybindFired"</div>
+                    <div class="event-params">(label, key)</div>
+                    <div class="event-desc">Fires when a bound key is pressed during gameplay</div>
+                </div>
+                <div class="event-card reveal">
+                    <div class="event-name">"colorChanged"</div>
+                    <div class="event-params">(label, color)</div>
+                    <div class="event-desc">Fires when a color picker value changes</div>
+                </div>
+                <div class="event-card reveal">
+                    <div class="event-name">"accentChanged"</div>
+                    <div class="event-params">(color)</div>
+                    <div class="event-desc">Fires when setAccent() changes the accent color</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- Theme -->
+    <section class="section" id="theme">
+        <div class="section-container">
+            <div class="section-header reveal">
+                <span class="section-tag">Theme</span>
+                <h2 class="section-title">BASE_THEME Colors</h2>
+                <p class="section-subtitle">The 13 color tokens that define Blocky's dark interface.</p>
+            </div>
+            <div class="theme-grid reveal">
+                <div class="theme-color"><div class="swatch" style="background:rgb(34,34,34);"></div><div><div class="color-name">Background</div><div class="color-value">34, 34, 34</div></div></div>
+                <div class="theme-color"><div class="swatch" style="background:rgb(28,28,28);"></div><div><div class="color-name">Secondary</div><div class="color-value">28, 28, 28</div></div></div>
+                <div class="theme-color"><div class="swatch" style="background:rgb(38,38,38);"></div><div><div class="color-name">Tertiary</div><div class="color-value">38, 38, 38</div></div></div>
+                <div class="theme-color"><div class="swatch" style="background:rgb(60,60,60);"></div><div><div class="color-name">Active</div><div class="color-value">60, 60, 60</div></div></div>
+                <div class="theme-color"><div class="swatch" style="background:rgb(0,120,215);"></div><div><div class="color-name">Accent</div><div class="color-value">0, 120, 215</div></div></div>
+                <div class="theme-color"><div class="swatch" style="background:rgb(230,230,230);"></div><div><div class="color-name">Text</div><div class="color-value">230, 230, 230</div></div></div>
+                <div class="theme-color"><div class="swatch" style="background:rgb(180,180,180);"></div><div><div class="color-name">SubText</div><div class="color-value">180, 180, 180</div></div></div>
+                <div class="theme-color"><div class="swatch" style="background:rgb(255,80,80);"></div><div><div class="color-name">Error</div><div class="color-value">255, 80, 80</div></div></div>
+                <div class="theme-color"><div class="swatch" style="background:rgb(0,200,80);"></div><div><div class="color-name">Success</div><div class="color-value">0, 200, 80</div></div></div>
+                <div class="theme-color"><div class="swatch" style="background:rgb(255,180,40);"></div><div><div class="color-name">Warning</div><div class="color-value">255, 180, 40</div></div></div>
+                <div class="theme-color"><div class="swatch" style="background:rgb(55,55,55);"></div><div><div class="color-name">Border</div><div class="color-value">55, 55, 55</div></div></div>
+                <div class="theme-color"><div class="swatch" style="background:rgb(24,24,24);"></div><div><div class="color-name">TitleBar</div><div class="color-value">24, 24, 24</div></div></div>
+                <div class="theme-color"><div class="swatch" style="background:rgb(20,20,20);"></div><div><div class="color-name">Console</div><div class="color-value">20, 20, 20</div></div></div>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- API -->
+    <section class="section" id="api">
+        <div class="section-container">
+            <div class="section-header reveal">
+                <span class="section-tag">API Reference</span>
+                <h2 class="section-title">Complete Method Reference</h2>
+                <p class="section-subtitle">Every public method extracted from the source code.</p>
+            </div>
+            <div class="api-grid">
+                <div class="api-card reveal">
+                    <div class="api-signature">blocky.new(title, options?)</div>
+                    <div class="api-desc">Creates a new window. Returns the window object.</div>
+                    <div class="api-params"><code>title</code> — string, title bar text<br><code>options.toggleKey</code> — Enum.KeyCode?<br><code>options.accentColor</code> — Color3?</div>
+                    <div class="api-returns">→ window { :addTab, :setAccent, :onAccentChanged }</div>
+                </div>
+                <div class="api-card reveal">
+                    <div class="api-signature">blocky.notify(title, msg, type?, dur?)</div>
+                    <div class="api-desc">Shows a toast notification popup.</div>
+                    <div class="api-params"><code>type</code> — "info" | "success" | "error" | "warning"<br><code>duration</code> — number (default: 3)</div>
+                    <div class="api-returns">→ void</div>
+                </div>
+                <div class="api-card reveal">
+                    <div class="api-signature">blocky.on(eventName, callback)</div>
+                    <div class="api-desc">Registers a global event listener.</div>
+                    <div class="api-params"><code>eventName</code> — one of 13 event names<br><code>callback</code> — function</div>
+                    <div class="api-returns">→ void</div>
+                </div>
+                <div class="api-card reveal">
+                    <div class="api-signature">window:addTab(name)</div>
+                    <div class="api-desc">Adds a tab to the tab bar with scrollable content.</div>
+                    <div class="api-params"><code>name</code> — string, tab label</div>
+                    <div class="api-returns">→ tab (pass to add* methods)</div>
+                </div>
+                <div class="api-card reveal">
+                    <div class="api-signature">window:addButton(tab, label, desc?, cb?)</div>
+                    <div class="api-desc">Adds a clickable button row with flash effect.</div>
+                    <div class="api-params"><code>desc</code> — optional subtitle string<br><code>cb</code> — function, called on click</div>
+                    <div class="api-returns">→ TextButton</div>
+                </div>
+                <div class="api-card reveal">
+                    <div class="api-signature">window:addToggle(tab, label, desc?, def?, cb?)</div>
+                    <div class="api-desc">Adds a checkbox toggle. Flexible argument order.</div>
+                    <div class="api-params"><code>default</code> — boolean (default: false)<br><code>cb</code> — function(state: boolean)</div>
+                    <div class="api-returns">→ { value: boolean, :set(boolean) }</div>
+                </div>
+                <div class="api-card reveal">
+                    <div class="api-signature">window:addSlider(tab, label, desc?, config, cb?)</div>
+                    <div class="api-desc">Adds a draggable slider with value display.</div>
+                    <div class="api-params"><code>config.min</code> / <code>.max</code> / <code>.default</code> / <code>.suffix</code><br><code>cb</code> — function(value: number)</div>
+                    <div class="api-returns">→ { value: number, :set(number) }</div>
+                </div>
+                <div class="api-card reveal">
+                    <div class="api-signature">window:addDropdown(tab, label, desc?, opts, def?, cb?)</div>
+                    <div class="api-desc">Adds a dropdown selector with animated expand.</div>
+                    <div class="api-params"><code>opts</code> — {string}, list of options<br><code>cb</code> — function(selected: string)</div>
+                    <div class="api-returns">→ { value: string, :set(string) }</div>
+                </div>
+                <div class="api-card reveal">
+                    <div class="api-signature">window:addInput(tab, label, desc?, placeholder?, cb?)</div>
+                    <div class="api-desc">Adds a text input that fires on Enter.</div>
+                    <div class="api-params"><code>placeholder</code> — hint text<br><code>cb</code> — function(text: string)</div>
+                    <div class="api-returns">→ TextBox</div>
+                </div>
+                <div class="api-card reveal">
+                    <div class="api-signature">window:addKeybind(tab, label, desc?, def?, cb?)</div>
+                    <div class="api-desc">Adds a rebindable keybind with listening mode.</div>
+                    <div class="api-params"><code>default</code> — Enum.KeyCode?<br><code>cb</code> — function(), called on keypress</div>
+                    <div class="api-returns">→ TextButton</div>
+                </div>
+                <div class="api-card reveal">
+                    <div class="api-signature">window:addColorPicker(tab, label, desc?, def?, cb?)</div>
+                    <div class="api-desc">Adds a color picker with hue wheel + SV square.</div>
+                    <div class="api-params"><code>default</code> — Color3?<br><code>cb</code> — function(color: Color3)</div>
+                    <div class="api-returns">→ { value: Color3, :set(Color3) }</div>
+                </div>
+                <div class="api-card reveal">
+                    <div class="api-signature">window:addSection(tab, label)</div>
+                    <div class="api-desc">Adds a section header with accent top-line animation.</div>
+                    <div class="api-params"><code>label</code> — section heading text</div>
+                    <div class="api-returns">→ Frame</div>
+                </div>
+                <div class="api-card reveal">
+                    <div class="api-signature">window:addLabel(tab, text)</div>
+                    <div class="api-desc">Adds a read-only monospace label row.</div>
+                    <div class="api-params"><code>text</code> — display text</div>
+                    <div class="api-returns">→ TextLabel</div>
+                </div>
+                <div class="api-card reveal">
+                    <div class="api-signature">window:addSeparator(tab)</div>
+                    <div class="api-desc">Adds a 1px horizontal divider line.</div>
+                    <div class="api-params">No parameters</div>
+                    <div class="api-returns">→ Frame</div>
+                </div>
+                <div class="api-card reveal">
+                    <div class="api-signature">window:setAccent(color)</div>
+                    <div class="api-desc">Changes accent color at runtime across all elements.</div>
+                    <div class="api-params"><code>color</code> — Color3</div>
+                    <div class="api-returns">→ void (fires "accentChanged" event)</div>
+                </div>
+                <div class="api-card reveal">
+                    <div class="api-signature">window:onAccentChanged(callback)</div>
+                    <div class="api-desc">Internal listener for accent color changes.</div>
+                    <div class="api-params"><code>callback</code> — function(color: Color3)</div>
+                    <div class="api-returns">→ void</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- Download -->
+    <section class="section" id="download">
+        <div class="section-container">
+            <div class="section-header reveal">
+                <span class="section-tag">Download</span>
+                <h2 class="section-title">Get Blocky</h2>
+                <p class="section-subtitle">Two versions for two different environments.</p>
+            </div>
+            <div class="download-cards">
+                <div class="download-card devs reveal">
+                    <div class="card-label">For Developers</div>
+                    <h3>Studio Version</h3>
+                    <p>Designed for Roblox Studio. Use require() or paste directly into a ModuleScript. Full API access with no executor dependencies.</p>
+                    <ul class="feature-list">
+                        <li><span class="check">✓</span> All 12 UI elements</li>
+                        <li><span class="check">✓</span> 13 global events</li>
+                        <li><span class="check">✓</span> Runtime accent theming</li>
+                        <li><span class="check">✓</span> Resizable & draggable windows</li>
+                        <li><span class="check">✓</span> Notification system</li>
+                        <li><span class="check">✓</span> HSV color picker with hex input</li>
+                        <li><span class="check">✓</span> Roblox Studio compatible</li>
+                    </ul>
+                    <a href="https://raw.githubusercontent.com/itsmeblocky/blocky/refs/heads/main/assets/blockyDevs.lua" class="btn btn-accent" style="width:100%;justify-content:center;" target="_blank">
+                        Download blockyDevs.lua
+                    </a>
+                    <div class="loadstring-box">
+                        <button class="copy-loadstring" onclick="copyLoadstring('devs')">Copy</button>
+                        <code id="devs-loadstring">loadstring(game:HttpGet("https://raw.githubusercontent.com/itsmeblocky/blocky/refs/heads/main/assets/blockyDevs.lua"))()</code>
+                    </div>
+                </div>
+                <div class="download-card exploiters reveal">
+                    <div class="card-label">For Exploiters</div>
+                    <h3>Executor Version</h3>
+                    <p>Optimized for executor environments with loadstring support. Same full API, adapted for executor-specific compatibility.</p>
+                    <ul class="feature-list">
+                        <li><span class="check">✓</span> All 12 UI elements</li>
+                        <li><span class="check">✓</span> 13 global events</li>
+                        <li><span class="check">✓</span> Runtime accent theming</li>
+                        <li><span class="check">✓</span> Resizable & draggable windows</li>
+                        <li><span class="check">✓</span> Notification system</li>
+                        <li><span class="check">✓</span> HSV color picker with hex input</li>
+                        <li><span class="check">✓</span> Loadstring / executor ready</li>
+                    </ul>
+                    <a href="https://raw.githubusercontent.com/itsmeblocky/blocky/refs/heads/main/assets/blockyExploiters.lua" class="btn btn-primary" style="width:100%;justify-content:center;" target="_blank">
+                        Download blockyExploiters.lua
+                    </a>
+                    <div class="loadstring-box">
+                        <button class="copy-loadstring" onclick="copyLoadstring('exploiters')">Copy</button>
+                        <code id="exploiters-loadstring">loadstring(game:HttpGet("https://raw.githubusercontent.com/itsmeblocky/blocky/refs/heads/main/assets/blockyExploiters.lua"))()</code>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- FAQ -->
+    <section class="section" id="faq">
+        <div class="section-container">
+            <div class="section-header reveal">
+                <span class="section-tag">FAQ</span>
+                <h2 class="section-title">Common Questions</h2>
+            </div>
+            <div class="faq-list">
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        What elements are included?
+                        <span class="faq-toggle">+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <div class="faq-answer-content">
+                            12 elements: <code>addButton</code>, <code>addToggle</code>, <code>addSlider</code>, <code>addDropdown</code>, <code>addInput</code>, <code>addKeybind</code>, <code>addColorPicker</code>, <code>addSection</code>, <code>addLabel</code>, <code>addSeparator</code>, plus the Window and Notification system.
+                        </div>
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        What's the difference between the Devs and Exploiters version?
+                        <span class="faq-toggle">+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <div class="faq-answer-content">
+                            The Devs version is designed for Roblox Studio — you can require it as a ModuleScript. The Exploiters version is optimized for executor environments and supports loadstring directly. Both expose the same full API with all 12 elements and 13 events.
+                        </div>
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        Can I change the accent color at runtime?
+                        <span class="faq-toggle">+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <div class="faq-answer-content">
+                            Yes. Call <code>window:setAccent(Color3.fromRGB(r, g, b))</code> and all accent-colored elements — toggle checkboxes, slider fills, tab underlines, section top lines, and slider value labels — update automatically via the internal <code>onAccentChanged</code> listener system. This also fires the global <code>"accentChanged"</code> event.
+                        </div>
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        Can I programmatically control element values?
+                        <span class="faq-toggle">+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <div class="faq-answer-content">
+                            Yes. <code>addToggle</code>, <code>addSlider</code>, <code>addDropdown</code>, and <code>addColorPicker</code> all return objects with a <code>.value</code> property and a <code>:set(newValue)</code> method. For example: <code>myToggle:set(true)</code> or <code>mySlider:set(50)</code>.
+                        </div>
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        How does the color picker work?
+                        <span class="faq-toggle">+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <div class="faq-answer-content">
+                            Clicking the color preview swatch opens a floating picker anchored to the element. It contains a hue ring (circular wheel), a saturation/value square in the center, draggable knobs for both, and a hex code input box at the bottom. Changes fire the callback and the <code>"colorChanged"</code> event.
+                        </div>
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        Are the windows resizable?
+                        <span class="faq-toggle">+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <div class="faq-answer-content">
+                            Yes. Windows support 8-directional edge resizing — Top, Bottom, Left, Right, and all four corners. Edge detection uses a 6px threshold. Minimum size is enforced at 380×280 pixels. The title bar is used for dragging.
+                        </div>
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        What notification types are available?
+                        <span class="faq-toggle">+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <div class="faq-answer-content">
+                            Four types: <code>"info"</code> (blue, [i]), <code>"success"</code> (green, [+]), <code>"error"</code> (red, [-]), and <code>"warning"</code> (yellow, [!]). Each gets its own accent color bar, icon, and progress bar. Default duration is 3 seconds.
+                        </div>
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        How do keybinds work?
+                        <span class="faq-toggle">+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <div class="faq-answer-content">
+                            Click the key display button to enter listening mode (shows "[...]" with accent color). Press any keyboard key to bind it. The display updates to show <code>[KeyName]</code>. When that key is pressed during gameplay (not when typing), the callback fires. The <code>"keybindChanged"</code> event fires on rebind, and <code>"keybindFired"</code> fires on activation.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- CTA -->
+    <section class="cta-section">
+        <div class="cta-bg"></div>
+        <div class="cta-content reveal">
+            <h2>Start Building with <span class="accent">Blocky</span></h2>
+            <p>12 elements. 13 events. Runtime theming. Zero setup time.</p>
+            <div class="hero-buttons">
+                <a href="#download" class="btn btn-primary">Get Blocky</a>
+                <a href="https://github.com/itsmeblocky/blocky" class="btn btn-secondary" target="_blank">View on GitHub</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-brand">
+                <a href="#" class="nav-logo">
+                    <div class="logo-icon">B</div>
+                    <span class="logo-text">blocky</span>
+                </a>
+                <p>A minimal, dark-themed UI library for Roblox with resizable windows, 12 elements, 13 events, and runtime accent theming.</p>
+            </div>
+            <div class="footer-col">
+                <h4>Docs</h4>
+                <a href="#features">Features</a>
+                <a href="#elements">Elements</a>
+                <a href="#api">API Reference</a>
+                <a href="#events">Events</a>
+                <a href="#theme">Theme</a>
+            </div>
+            <div class="footer-col">
+                <h4>Download</h4>
+                <a href="https://raw.githubusercontent.com/itsmeblocky/blocky/refs/heads/main/assets/blockyDevs.lua" target="_blank">blockyDevs.lua</a>
+                <a href="https://raw.githubusercontent.com/itsmeblocky/blocky/refs/heads/main/assets/blockyExploiters.lua" target="_blank">blockyExploiters.lua</a>
+            </div>
+            <div class="footer-col">
+                <h4>Links</h4>
+                <a href="https://github.com/itsmeblocky/blocky" target="_blank">GitHub</a>
+                <a href="#faq">FAQ</a>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <span>© 2025 blocky — itsmeblocky</span>
+            <span id="footer-version">loading...</span>
+        </div>
+    </footer>
+
+    <script>
+        // ── Fetch latest commit from GitHub API ──
+        async function fetchLatestCommit() {
+            const versionEl = document.getElementById('version-text');
+            const commitBar = document.getElementById('commitBar');
+            const commitMsg = document.getElementById('commitMsg');
+            const commitSha = document.getElementById('commitSha');
+            const commitDate = document.getElementById('commitDate');
+            const footerVersion = document.getElementById('footer-version');
+            const showcaseLabel = document.getElementById('showcase-label');
+
+            try {
+                const res = await fetch('https://api.github.com/repos/itsmeblocky/blocky/commits/main');
+                if (!res.ok) throw new Error('API error');
+                const data = await res.json();
+
+                const message = data.commit.message;
+                const sha = data.sha.substring(0, 7);
+                const dateRaw = data.commit.author.date;
+                const date = new Date(dateRaw);
+                const dateStr = date.toLocaleDateString('en-US', {
+                    year: 'numeric', month: 'short', day: 'numeric'
+                });
+
+                // Update hero badge
+                versionEl.textContent = message + ' — open source';
+                versionEl.classList.remove('loading');
+
+                // Update commit bar
+                commitBar.style.display = 'flex';
+                commitMsg.textContent = message;
+                commitSha.textContent = sha;
+                commitDate.textContent = dateStr;
+
+                // Update footer
+                footerVersion.textContent = message + ' · ' + sha;
+
+                // Update showcase label
+                showcaseLabel.textContent = '  ' + message + ' — blocky';
+
+            } catch (err) {
+                console.warn('Failed to fetch commit:', err);
+                versionEl.textContent = 'open source — actively maintained';
+                versionEl.classList.remove('loading');
+                footerVersion.textContent = 'open source';
+                showcaseLabel.textContent = '  blocky';
+            }
+        }
+
+        fetchLatestCommit();
+
+        // ── Navbar scroll ──
+        window.addEventListener('scroll', () => {
+            document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 50);
+        });
+
+        // ── Mobile menu ──
+        function toggleMenu() {
+            document.getElementById('navLinks').classList.toggle('active');
+        }
+        document.querySelectorAll('.nav-links a').forEach(link => {
+            link.addEventListener('click', () => document.getElementById('navLinks').classList.remove('active'));
+        });
+
+        // ── Reveal on scroll ──
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry, i) => {
+                if (entry.isIntersecting) {
+                    setTimeout(() => entry.target.classList.add('visible'), i * 50);
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.1 });
+        document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+        // ── FAQ ──
+        function toggleFaq(el) {
+            const item = el.parentElement;
+            const wasActive = item.classList.contains('active');
+            document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('active'));
+            if (!wasActive) item.classList.add('active');
+        }
+
+        // ── Copy code ──
+        function copyCode(btn, id) {
+            navigator.clipboard.writeText(document.getElementById(id).innerText).then(() => {
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = 'Copy', 2000);
+            });
+        }
+
+        // ── Copy loadstring ──
+        function copyLoadstring(type) {
+            const code = document.getElementById(type + '-loadstring').innerText;
+            navigator.clipboard.writeText(code).then(() => {
+                const btn = event.target;
+                btn.textContent = 'Copied!';
+                btn.style.background = 'var(--success)';
+                btn.style.borderColor = 'var(--success)';
+                btn.style.color = 'white';
+                setTimeout(() => {
+                    btn.textContent = 'Copy';
+                    btn.style.background = '';
+                    btn.style.borderColor = '';
+                    btn.style.color = '';
+                }, 2000);
+            });
+        }
+
+        // ── Smooth scroll ──
+        document.querySelectorAll('a[href^="#"]').forEach(a => {
+            a.addEventListener('click', function(e) {
+                e.preventDefault();
+                const t = document.querySelector(this.getAttribute('href'));
+                if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        });
+
+        // ── Showcase tabs ──
+        document.querySelectorAll('.showcase-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.showcase-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+            });
+        });
+    </script>
+</body>
+</html>
