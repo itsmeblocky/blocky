@@ -1,0 +1,1575 @@
+local blockyDevs = {}
+blockyDevs.__index = blockyDevs
+
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
+local BASE_THEME = {
+	Background = Color3.fromRGB(34, 34, 34),
+	Secondary = Color3.fromRGB(28, 28, 28),
+	Tertiary = Color3.fromRGB(38, 38, 38),
+	Active = Color3.fromRGB(60, 60, 60),
+	Accent = Color3.fromRGB(0, 120, 215),
+	Text = Color3.fromRGB(230, 230, 230),
+	SubText = Color3.fromRGB(180, 180, 180),
+	Error = Color3.fromRGB(255, 80, 80),
+	Success = Color3.fromRGB(0, 200, 80),
+	Warning = Color3.fromRGB(255, 180, 40),
+	Border = Color3.fromRGB(55, 55, 55),
+	TitleBar = Color3.fromRGB(24, 24, 24),
+	Console = Color3.fromRGB(20, 20, 20),
+}
+
+local tweenFast = TweenInfo.new(0.15, Enum.EasingStyle.Quad)
+local tweenMed  = TweenInfo.new(0.25, Enum.EasingStyle.Quad)
+local tweenSlow = TweenInfo.new(0.35, Enum.EasingStyle.Quad)
+
+local function tween(obj: Instance, props: {[string]: any}, info: TweenInfo?)
+	TweenService:Create(obj, info or tweenFast, props):Play()
+end
+
+local function makeLabel(
+	parent: Instance,
+	text: string,
+	size: number?,
+	color: Color3?,
+	font: Enum.Font?
+): TextLabel
+	local l = Instance.new("TextLabel")
+	l.BackgroundTransparency = 1
+	l.Text = text or ""
+	l.TextSize = size or 13
+	l.TextColor3 = color or BASE_THEME.Text
+	l.Font = font or Enum.Font.SourceSans
+	l.TextXAlignment = Enum.TextXAlignment.Left
+	l.Size = UDim2.new(1, 0, 1, 0)
+	l.Parent = parent
+	return l
+end
+
+local function makeStroke(parent: Instance, color: Color3?): UIStroke
+	local s = Instance.new("UIStroke")
+	s.Color = color or BASE_THEME.Border
+	s.Thickness = 1
+	s.Parent = parent
+	return s
+end
+
+local function hsvToRgb(h: number, s: number, v: number): Color3
+	local r, g, b
+	local i = math.floor(h * 6)
+	local f = h * 6 - i
+	local p = v * (1 - s)
+	local q = v * (1 - f * s)
+	local t = v * (1 - (1 - f) * s)
+	i = i % 6
+	if i == 0 then r,g,b = v,t,p
+	elseif i == 1 then r,g,b = q,v,p
+	elseif i == 2 then r,g,b = p,v,t
+	elseif i == 3 then r,g,b = p,q,v
+	elseif i == 4 then r,g,b = t,p,v
+	elseif i == 5 then r,g,b = v,p,q
+	end
+	return Color3.new(r, g, b)
+end
+
+local function rgbToHsv(color: Color3): (number, number, number)
+	local r, g, b = color.R, color.G, color.B
+	local max = math.max(r, g, b)
+	local min = math.min(r, g, b)
+	local delta = max - min
+	local h, s, v = 0, 0, max
+	if max ~= 0 then s = delta / max end
+	if delta ~= 0 then
+		if max == r then h = (g - b) / delta % 6
+		elseif max == g then h = (b - r) / delta + 2
+		else h = (r - g) / delta + 4
+		end
+		h = h / 6
+	end
+	return h, s, v
+end
+
+local _events: {[string]: {(...any) -> ()}} = {}
+
+--[=[
+	Registers a callback for a named blockyDevs event.
+
+	Available events:
+	- "notifyFired"     → (title: string, message: string, notifType: string, duration: number)
+	- "windowClosed"    → (title: string)
+	- "windowMinimized" → (title: string, minimized: boolean)
+	- "windowToggled"   → (title: string, visible: boolean)
+	- "tabSwitched"     → (name: string)
+	- "buttonClicked"   → (label: string)
+	- "toggleChanged"   → (label: string, state: boolean)
+	- "dropdownChanged" → (label: string, selected: string)
+	- "inputSubmitted"  → (label: string, text: string)
+	- "keybindChanged"  → (label: string, key: Enum.KeyCode)
+	- "keybindFired"    → (label: string, key: Enum.KeyCode)
+	- "colorChanged"    → (label: string, color: Color3)
+	- "accentChanged"   → (color: Color3)
+]=]
+function blockyDevs.on(eventName: string, callback: (...any) -> ())
+	if not _events[eventName] then _events[eventName] = {} end
+	table.insert(_events[eventName], callback)
+end
+
+local function fireEvent(eventName: string, ...: any)
+	if _events[eventName] then
+		for _, cb in ipairs(_events[eventName]) do
+			pcall(cb, ...)
+		end
+	end
+end
+
+local notifGui = Instance.new("ScreenGui")
+notifGui.Name = "blockyDevsNotifs"
+notifGui.ResetOnSpawn = false
+notifGui.DisplayOrder = 99999
+notifGui.IgnoreGuiInset = true
+notifGui.Parent = game.Players.LocalPlayer.PlayerGui
+
+local notifHolder = Instance.new("Frame")
+notifHolder.Size = UDim2.new(0, 260, 1, 0)
+notifHolder.Position = UDim2.new(1, -270, 0, 0)
+notifHolder.BackgroundTransparency = 1
+notifHolder.Parent = notifGui
+
+local notifLayout = Instance.new("UIListLayout")
+notifLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+notifLayout.Padding = UDim.new(0, 4)
+notifLayout.Parent = notifHolder
+
+local notifPad = Instance.new("UIPadding")
+notifPad.PaddingBottom = UDim.new(0, 8)
+notifPad.Parent = notifHolder
+
+--[=[
+	Shows a notification popup.
+
+	@param title string — bold heading text
+	@param message string — body text below the heading
+	@param notifType string? — "info" | "success" | "error" | "warning" (default: "info")
+	@param duration number? — how long in seconds before it disappears (default: 3)
+]=]
+function blockyDevs.notify(title: string, message: string, notifType: string?, duration: number?)
+	notifType = notifType or "info"
+	duration = duration or 3
+
+	local accentColor = ({
+		info    = BASE_THEME.Accent,
+		success = BASE_THEME.Success,
+		error   = BASE_THEME.Error,
+		warning = BASE_THEME.Warning,
+	})[notifType] or BASE_THEME.Accent
+
+	local icon = ({
+		info    = "[i]",
+		success = "[+]",
+		error   = "[-]",
+		warning = "[!]",
+	})[notifType] or "[i]"
+
+	fireEvent("notifyFired", title, message, notifType, duration)
+
+	local notif = Instance.new("Frame")
+	notif.Size = UDim2.new(1, 0, 0, 56)
+	notif.BackgroundColor3 = BASE_THEME.Secondary
+	notif.Position = UDim2.new(1, 10, 0, 0)
+	notif.Parent = notifHolder
+	makeStroke(notif, BASE_THEME.Border)
+
+	local bar = Instance.new("Frame")
+	bar.Size = UDim2.new(0, 2, 1, 0)
+	bar.BackgroundColor3 = accentColor
+	bar.BorderSizePixel = 0
+	bar.Parent = notif
+
+	local iconLabel = Instance.new("TextLabel")
+	iconLabel.Size = UDim2.new(0, 30, 0, 16)
+	iconLabel.Position = UDim2.new(0, 10, 0, 8)
+	iconLabel.BackgroundTransparency = 1
+	iconLabel.Text = icon
+	iconLabel.TextColor3 = accentColor
+	iconLabel.TextSize = 12
+	iconLabel.Font = Enum.Font.Code
+	iconLabel.TextXAlignment = Enum.TextXAlignment.Left
+	iconLabel.Parent = notif
+
+	local titleLabel = Instance.new("TextLabel")
+	titleLabel.Size = UDim2.new(1, -44, 0, 16)
+	titleLabel.Position = UDim2.new(0, 40, 0, 8)
+	titleLabel.BackgroundTransparency = 1
+	titleLabel.Text = title
+	titleLabel.TextColor3 = BASE_THEME.Text
+	titleLabel.TextSize = 13
+	titleLabel.Font = Enum.Font.SourceSansSemibold
+	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+	titleLabel.Parent = notif
+
+	local msgLabel = Instance.new("TextLabel")
+	msgLabel.Size = UDim2.new(1, -44, 0, 24)
+	msgLabel.Position = UDim2.new(0, 40, 0, 26)
+	msgLabel.BackgroundTransparency = 1
+	msgLabel.Text = message
+	msgLabel.TextColor3 = BASE_THEME.SubText
+	msgLabel.TextSize = 12
+	msgLabel.Font = Enum.Font.SourceSans
+	msgLabel.TextXAlignment = Enum.TextXAlignment.Left
+	msgLabel.TextWrapped = true
+	msgLabel.Parent = notif
+
+	local progressBar = Instance.new("Frame")
+	progressBar.Size = UDim2.new(1, 0, 0, 1)
+	progressBar.Position = UDim2.new(0, 0, 1, -1)
+	progressBar.BackgroundColor3 = accentColor
+	progressBar.BorderSizePixel = 0
+	progressBar.Parent = notif
+
+	tween(notif, {Position = UDim2.new(0, 0, 0, 0)}, tweenMed)
+	TweenService:Create(progressBar, TweenInfo.new(duration, Enum.EasingStyle.Linear), {Size = UDim2.new(0, 0, 0, 1)}):Play()
+
+	task.delay(duration, function()
+		tween(notif, {Position = UDim2.new(1, 10, 0, 0)}, tweenMed)
+		task.delay(0.25, function() notif:Destroy() end)
+	end)
+end
+
+--[=[
+	Creates a new blockyDevs window.
+
+	@param title string — displayed in the title bar
+	@param options table? — optional config:
+		- toggleKey: Enum.KeyCode? — key to show/hide the window
+		- accentColor: Color3? — custom accent color (default: blue)
+
+	@return table — the window object with :addTab, :setAccent, :onAccentChanged
+]=]
+function blockyDevs.new(title: string, options: {
+	toggleKey: Enum.KeyCode?,
+	accentColor: Color3?,
+	}?)
+	local self = setmetatable({}, blockyDevs)
+	self.tabs = {}
+	self.activeTab = nil
+	self._accentListeners = {}
+	options = options or {}
+
+	local THEME = {}
+	for k, v in pairs(BASE_THEME) do THEME[k] = v end
+	if options.accentColor then
+		THEME.Accent = options.accentColor
+	end
+	self._theme = THEME
+
+	local screenGui = Instance.new("ScreenGui")
+	screenGui.Name = "blockylib_" .. title
+	screenGui.ResetOnSpawn = false
+	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	screenGui.DisplayOrder = 9999
+	screenGui.IgnoreGuiInset = true
+	screenGui.Parent = game.Players.LocalPlayer.PlayerGui
+
+	local main = Instance.new("Frame")
+	main.Size = UDim2.new(0, 520, 0, 400)
+	main.Position = UDim2.new(0.5, -260, 0.5, -200)
+	main.BackgroundColor3 = THEME.Background
+	main.BorderSizePixel = 0
+	main.ClipsDescendants = true
+	main.Parent = screenGui
+	makeStroke(main, THEME.Border)
+
+	local titleBar = Instance.new("Frame")
+	titleBar.Size = UDim2.new(1, 0, 0, 34)
+	titleBar.BackgroundColor3 = THEME.TitleBar
+	titleBar.BorderSizePixel = 0
+	titleBar.Parent = main
+
+	local titleLabel = makeLabel(titleBar, title or "blockyDevs", 14, THEME.Text, Enum.Font.SourceSansSemibold)
+	titleLabel.Size = UDim2.new(1, -80, 1, 0)
+	titleLabel.Position = UDim2.new(0, 8, 0, 0)
+
+	local function makeHeaderBtn(text: string, xOffset: number): TextButton
+		local btn = Instance.new("TextButton")
+		btn.Size = UDim2.new(0, 36, 0, 22)
+		btn.Position = UDim2.new(1, xOffset, 0, 6)
+		btn.BackgroundColor3 = THEME.Tertiary
+		btn.Text = text
+		btn.TextColor3 = THEME.Text
+		btn.TextSize = 13
+		btn.Font = Enum.Font.SourceSans
+		btn.AutoButtonColor = false
+		btn.BorderSizePixel = 0
+		btn.Parent = titleBar
+		makeStroke(btn, THEME.Border)
+		btn.MouseEnter:Connect(function() tween(btn, {BackgroundColor3 = THEME.Active}) end)
+		btn.MouseLeave:Connect(function() tween(btn, {BackgroundColor3 = THEME.Tertiary}) end)
+		return btn
+	end
+
+	local btnClose = makeHeaderBtn("X", -44)
+	local btnMin   = makeHeaderBtn("_", -84)
+
+	btnClose.MouseEnter:Connect(function() tween(btnClose, {TextColor3 = THEME.Error}) end)
+	btnClose.MouseLeave:Connect(function() tween(btnClose, {TextColor3 = THEME.Text}) end)
+
+	local minimized = false
+	local fullSize = UDim2.new(0, 520, 0, 400)
+
+	btnClose.MouseButton1Click:Connect(function()
+		fireEvent("windowClosed", title)
+		tween(main, {Size = UDim2.new(0, 520, 0, 0)}, tweenMed)
+		task.delay(0.25, function() screenGui:Destroy() end)
+	end)
+
+	btnMin.MouseButton1Click:Connect(function()
+		minimized = not minimized
+		fireEvent("windowMinimized", title, minimized)
+		if minimized then
+			tween(main, {Size = UDim2.new(0, 520, 0, 34)}, tweenMed)
+		else
+			tween(main, {Size = fullSize}, tweenMed)
+		end
+	end)
+
+	local tabBar = Instance.new("Frame")
+	tabBar.Size = UDim2.new(1, 0, 0, 26)
+	tabBar.Position = UDim2.new(0, 0, 0, 34)
+	tabBar.BackgroundColor3 = THEME.Secondary
+	tabBar.BorderSizePixel = 0
+	tabBar.Parent = main
+	makeStroke(tabBar, THEME.Border)
+
+	local tabLayout = Instance.new("UIListLayout")
+	tabLayout.FillDirection = Enum.FillDirection.Horizontal
+	tabLayout.Padding = UDim.new(0, 0)
+	tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	tabLayout.Parent = tabBar
+
+	local contentArea = Instance.new("Frame")
+	contentArea.Size = UDim2.new(1, 0, 1, -60)
+	contentArea.Position = UDim2.new(0, 0, 0, 60)
+	contentArea.BackgroundTransparency = 1
+	contentArea.Parent = main
+
+	self.screenGui = screenGui
+	self.main = main
+	self.tabBar = tabBar
+	self.contentArea = contentArea
+	self._fullSize = fullSize
+
+	local dragging, dragStart, startPos
+	local resizing, resizeDir, resizeStartMouse, resizeStartSize, resizeStartPos
+	local edgeThreshold = 6
+	local minW, minH = 380, 280
+
+	local function getEdge(mousePos: Vector3): string?
+		local ap = main.AbsolutePosition
+		local as = main.AbsoluteSize
+		local right = ap.X + as.X
+		local bottom = ap.Y + as.Y
+		local nearL = math.abs(mousePos.X - ap.X) <= edgeThreshold
+		local nearR = math.abs(mousePos.X - right) <= edgeThreshold
+		local nearT = math.abs(mousePos.Y - ap.Y) <= edgeThreshold
+		local nearB = math.abs(mousePos.Y - bottom) <= edgeThreshold
+		if nearR and nearB then return "BottomRight"
+		elseif nearL and nearB then return "BottomLeft"
+		elseif nearR and nearT then return "TopRight"
+		elseif nearL and nearT then return "TopLeft"
+		elseif nearR then return "Right"
+		elseif nearL then return "Left"
+		elseif nearB then return "Bottom"
+		elseif nearT then return "Top"
+		end
+		return nil
+	end
+
+	main.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			local dir = getEdge(input.Position)
+			if dir and not minimized then
+				resizing = true
+				resizeDir = dir
+				resizeStartMouse = Vector2.new(input.Position.X, input.Position.Y)
+				resizeStartSize = Vector2.new(main.AbsoluteSize.X, main.AbsoluteSize.Y)
+				resizeStartPos = Vector2.new(main.AbsolutePosition.X, main.AbsolutePosition.Y)
+			end
+		end
+	end)
+
+	titleBar.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 and not resizing then
+			dragging = true
+			dragStart = input.Position
+			startPos = main.Position
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseMovement then
+			if resizing then
+				local delta = Vector2.new(input.Position.X, input.Position.Y) - resizeStartMouse
+				local newW = resizeStartSize.X
+				local newH = resizeStartSize.Y
+				local newX = resizeStartPos.X
+				local newY = resizeStartPos.Y
+				if resizeDir:find("Right") then newW = math.max(minW, resizeStartSize.X + delta.X) end
+				if resizeDir:find("Left") then
+					newW = math.max(minW, resizeStartSize.X - delta.X)
+					newX = resizeStartPos.X + (resizeStartSize.X - newW)
+				end
+				if resizeDir:find("Bottom") then newH = math.max(minH, resizeStartSize.Y + delta.Y) end
+				if resizeDir:find("Top") then
+					newH = math.max(minH, resizeStartSize.Y - delta.Y)
+					newY = resizeStartPos.Y + (resizeStartSize.Y - newH)
+				end
+				main.Size = UDim2.new(0, newW, 0, newH)
+				main.Position = UDim2.new(0, newX, 0, newY)
+				self._fullSize = UDim2.new(0, newW, 0, newH)
+			elseif dragging then
+				local delta = input.Position - dragStart
+				main.Position = UDim2.new(
+					startPos.X.Scale, startPos.X.Offset + delta.X,
+					startPos.Y.Scale, startPos.Y.Offset + delta.Y
+				)
+			end
+		end
+	end)
+
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			dragging = false
+			resizing = false
+			resizeDir = nil
+		end
+	end)
+
+	if options.toggleKey then
+		UserInputService.InputBegan:Connect(function(input, gpe)
+			if not gpe and input.KeyCode == options.toggleKey then
+				screenGui.Enabled = not screenGui.Enabled
+				fireEvent("windowToggled", title, screenGui.Enabled)
+			end
+		end)
+	end
+
+	--[=[
+		Changes the accent color of the entire UI at runtime.
+		Fires the "accentChanged" event and notifies all internal listeners.
+
+		@param color Color3 — the new accent color
+	]=]
+	function self:setAccent(color: Color3)
+		self._theme.Accent = color
+		fireEvent("accentChanged", color)
+		for _, cb in ipairs(self._accentListeners) do
+			pcall(cb, color)
+		end
+	end
+
+	--[=[
+		Registers an internal listener that fires when setAccent is called.
+		Used internally by elements to update their accent-colored parts.
+
+		@param cb function — receives the new Color3
+	]=]
+	function self:onAccentChanged(cb: (Color3) -> ())
+		table.insert(self._accentListeners, cb)
+	end
+
+	return self
+end
+
+--[=[
+	Adds a tab to the window.
+
+	@param name string — label shown on the tab button
+	@return table — the tab object, passed into addButton, addToggle etc.
+]=]
+function blockyDevs:addTab(name: string)
+	local THEME = self._theme
+	local tab = {}
+	tab.name = name
+	tab.elements = {}
+
+	local tabBtn = Instance.new("TextButton")
+	tabBtn.Size = UDim2.new(0, 0, 1, 0)
+	tabBtn.AutomaticSize = Enum.AutomaticSize.X
+	tabBtn.BackgroundColor3 = THEME.Secondary
+	tabBtn.Text = name
+	tabBtn.TextColor3 = THEME.SubText
+	tabBtn.TextSize = 13
+	tabBtn.Font = Enum.Font.SourceSans
+	tabBtn.AutoButtonColor = false
+	tabBtn.BorderSizePixel = 0
+	tabBtn.LayoutOrder = #self.tabs + 1
+	tabBtn.Parent = self.tabBar
+
+	local tabPad = Instance.new("UIPadding")
+	tabPad.PaddingLeft = UDim.new(0, 12)
+	tabPad.PaddingRight = UDim.new(0, 12)
+	tabPad.Parent = tabBtn
+
+	local underline = Instance.new("Frame")
+	underline.Size = UDim2.new(0, 0, 0, 2)
+	underline.Position = UDim2.new(0.5, 0, 1, -2)
+	underline.AnchorPoint = Vector2.new(0.5, 0)
+	underline.BackgroundColor3 = THEME.Accent
+	underline.BorderSizePixel = 0
+	underline.Parent = tabBtn
+
+	self:onAccentChanged(function(c) underline.BackgroundColor3 = c end)
+
+	local tabContent = Instance.new("ScrollingFrame")
+	tabContent.Size = UDim2.new(1, 0, 1, 0)
+	tabContent.BackgroundTransparency = 1
+	tabContent.BorderSizePixel = 0
+	tabContent.ScrollBarThickness = 4
+	tabContent.ScrollBarImageColor3 = THEME.Active
+	tabContent.Visible = false
+	tabContent.CanvasSize = UDim2.new(0, 0, 0, 0)
+	tabContent.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	tabContent.Parent = self.contentArea
+
+	local contentLayout = Instance.new("UIListLayout")
+	contentLayout.Padding = UDim.new(0, 0)
+	contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	contentLayout.Parent = tabContent
+
+	local contentPad = Instance.new("UIPadding")
+	contentPad.PaddingTop = UDim.new(0, 6)
+	contentPad.PaddingLeft = UDim.new(0, 8)
+	contentPad.PaddingRight = UDim.new(0, 8)
+	contentPad.PaddingBottom = UDim.new(0, 6)
+	contentPad.Parent = tabContent
+
+	tab.btn = tabBtn
+	tab.content = tabContent
+	tab.underline = underline
+
+	tabBtn.MouseEnter:Connect(function()
+		if self.activeTab ~= tab then tween(tabBtn, {TextColor3 = THEME.Text}) end
+	end)
+	tabBtn.MouseLeave:Connect(function()
+		if self.activeTab ~= tab then tween(tabBtn, {TextColor3 = THEME.SubText}) end
+	end)
+	tabBtn.MouseButton1Click:Connect(function()
+		self:switchTab(tab)
+		fireEvent("tabSwitched", tab.name)
+	end)
+
+	table.insert(self.tabs, tab)
+	if #self.tabs == 1 then self:switchTab(tab) end
+
+	return tab
+end
+
+function blockyDevs:switchTab(targetTab: table)
+	local THEME = self._theme
+	for _, tab in ipairs(self.tabs) do
+		tab.content.Visible = false
+		tween(tab.btn, {TextColor3 = THEME.SubText, BackgroundColor3 = THEME.Secondary})
+		tween(tab.underline, {Size = UDim2.new(0, 0, 0, 2)})
+	end
+	targetTab.content.Visible = true
+	tween(targetTab.btn, {TextColor3 = THEME.Text, BackgroundColor3 = THEME.Active})
+	tween(targetTab.underline, {Size = UDim2.new(1, 0, 0, 2)}, tweenMed)
+	self.activeTab = targetTab
+end
+
+--[=[
+	Adds a section header row to a tab.
+
+	@param tab table — the tab returned from addTab
+	@param label string — section heading text
+	@return Frame
+]=]
+function blockyDevs:addSection(tab: table, label: string)
+	local THEME = self._theme
+	local section = Instance.new("Frame")
+	section.Size = UDim2.new(1, 0, 0, 22)
+	section.BackgroundColor3 = THEME.TitleBar
+	section.BorderSizePixel = 0
+	section.LayoutOrder = #tab.elements + 1
+	section.Parent = tab.content
+	makeStroke(section, THEME.Border)
+
+	local topLine = Instance.new("Frame")
+	topLine.Size = UDim2.new(0, 0, 0, 1)
+	topLine.BackgroundColor3 = THEME.Accent
+	topLine.BorderSizePixel = 0
+	topLine.Parent = section
+	tween(topLine, {Size = UDim2.new(1, 0, 0, 1)}, tweenSlow)
+
+	self:onAccentChanged(function(c) topLine.BackgroundColor3 = c end)
+
+	makeLabel(section, "  " .. label, 11, THEME.SubText, Enum.Font.SourceSansSemibold)
+
+	table.insert(tab.elements, section)
+	return section
+end
+
+--[=[
+	Adds a clickable button to a tab.
+
+	@param tab table — the tab returned from addTab
+	@param label string — button text
+	@param desc string? — optional subtitle description shown below the label
+	@param callback function? — called when the button is clicked
+	@return TextButton
+]=]
+function blockyDevs:addButton(tab: table, label: string, desc: string?, callback: (() -> ())?)
+	local THEME = self._theme
+	if type(desc) == "function" then
+		callback = desc :: any
+		desc = nil
+	end
+
+	local height = desc and 44 or 30
+
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(1, 0, 0, height)
+	btn.BackgroundColor3 = THEME.Tertiary
+	btn.Text = ""
+	btn.AutoButtonColor = false
+	btn.BorderSizePixel = 0
+	btn.LayoutOrder = #tab.elements + 1
+	btn.Parent = tab.content
+	makeStroke(btn, THEME.Border)
+
+	local lbl = makeLabel(btn, label, 13, THEME.Text, Enum.Font.SourceSans)
+	lbl.Size = UDim2.new(1, -24, 0, 18)
+	lbl.Position = UDim2.new(0, 8, 0, 6)
+
+	if desc then
+		local descLbl = makeLabel(btn, desc, 11, THEME.SubText)
+		descLbl.Size = UDim2.new(1, -24, 0, 14)
+		descLbl.Position = UDim2.new(0, 8, 0, 24)
+	end
+
+	local flash = Instance.new("Frame")
+	flash.Size = UDim2.new(1, 0, 1, 0)
+	flash.BackgroundColor3 = Color3.new(1, 1, 1)
+	flash.BackgroundTransparency = 1
+	flash.BorderSizePixel = 0
+	flash.ZIndex = 2
+	flash.Parent = btn
+
+	btn.MouseEnter:Connect(function()
+		tween(btn, {BackgroundColor3 = THEME.Active})
+		tween(lbl, {TextColor3 = Color3.new(1, 1, 1)})
+	end)
+	btn.MouseLeave:Connect(function()
+		tween(btn, {BackgroundColor3 = THEME.Tertiary})
+		tween(lbl, {TextColor3 = THEME.Text})
+	end)
+	btn.MouseButton1Click:Connect(function()
+		tween(flash, {BackgroundTransparency = 0.85}, tweenFast)
+		tween(flash, {BackgroundTransparency = 1}, TweenInfo.new(0.3, Enum.EasingStyle.Quad))
+		fireEvent("buttonClicked", label)
+		if callback then callback() end
+	end)
+
+	table.insert(tab.elements, btn)
+	return btn
+end
+
+--[=[
+	Adds a toggle (checkbox) to a tab.
+
+	@param tab table — the tab returned from addTab
+	@param label string — toggle label text
+	@param desc string? — optional subtitle description
+	@param default boolean? — initial state (default: false)
+	@param callback function? — called with (state: boolean) when toggled
+
+	@return table — { value: boolean, set: (boolean) -> () }
+]=]
+function blockyDevs:addToggle(
+	tab: table,
+	label: string,
+	desc: string?,
+	default: boolean?,
+	callback: ((state: boolean) -> ())?
+)
+	local THEME = self._theme
+	if type(desc) == "boolean" or (type(desc) == "nil" and type(default) == "function") then
+		callback = default :: any
+		default = desc :: any
+		desc = nil
+	end
+
+	local state = default or false
+	local height = desc and 44 or 30
+
+	local row = Instance.new("Frame")
+	row.Size = UDim2.new(1, 0, 0, height)
+	row.BackgroundColor3 = THEME.Tertiary
+	row.BorderSizePixel = 0
+	row.LayoutOrder = #tab.elements + 1
+	row.Parent = tab.content
+	makeStroke(row, THEME.Border)
+
+	local lbl = makeLabel(row, label, 13, THEME.Text)
+	lbl.Size = UDim2.new(1, -60, 0, 18)
+	lbl.Position = UDim2.new(0, 8, 0, desc and 6 or 6)
+
+	if desc then
+		local descLbl = makeLabel(row, desc, 11, THEME.SubText)
+		descLbl.Size = UDim2.new(1, -60, 0, 14)
+		descLbl.Position = UDim2.new(0, 8, 0, 24)
+	end
+
+	local box = Instance.new("Frame")
+	box.Size = UDim2.new(0, 16, 0, 16)
+	box.Position = UDim2.new(1, -28, 0.5, -8)
+	box.BackgroundColor3 = state and THEME.Accent or THEME.Background
+	box.BorderSizePixel = 0
+	box.Parent = row
+	local boxStroke = makeStroke(box, state and THEME.Accent or THEME.Border)
+
+	self:onAccentChanged(function(c)
+		if state then
+			box.BackgroundColor3 = c
+			boxStroke.Color = c
+		end
+	end)
+
+	local check = makeLabel(box, "✓", 12, Color3.new(1,1,1), Enum.Font.SourceSansBold)
+	check.TextXAlignment = Enum.TextXAlignment.Center
+	check.BackgroundTransparency = 1
+	check.Size = UDim2.new(1, 0, 1, 0)
+	check.TextTransparency = state and 0 or 1
+
+	local clickArea = Instance.new("TextButton")
+	clickArea.Size = UDim2.new(1, 0, 1, 0)
+	clickArea.BackgroundTransparency = 1
+	clickArea.Text = ""
+	clickArea.Parent = row
+
+	local toggle = {}
+	toggle.value = state
+
+	function toggle:set(val: boolean)
+		state = val
+		toggle.value = val
+		tween(box, {BackgroundColor3 = val and THEME.Accent or THEME.Background})
+		tween(boxStroke, {Color = val and THEME.Accent or THEME.Border})
+		tween(check, {TextTransparency = val and 0 or 1})
+		fireEvent("toggleChanged", label, val)
+		if callback then callback(val) end
+	end
+
+	row.MouseEnter:Connect(function() tween(row, {BackgroundColor3 = THEME.Active}) end)
+	row.MouseLeave:Connect(function() tween(row, {BackgroundColor3 = THEME.Tertiary}) end)
+	clickArea.MouseButton1Click:Connect(function() toggle:set(not state) end)
+
+	table.insert(tab.elements, row)
+	return toggle
+end
+
+--[=[
+	Adds a draggable slider to a tab.
+
+	@param tab table — the tab returned from addTab
+	@param label string — slider label text
+	@param desc string? — optional subtitle description
+	@param config table — { min: number, max: number, default: number?, suffix: string? }
+	@param callback function? — called with (value: number) on change
+
+	@return table — { value: number, set: (number) -> () }
+]=]
+function blockyDevs:addSlider(
+	tab: table,
+	label: string,
+	desc: string?,
+	config: {
+		min: number,
+		max: number,
+		default: number?,
+		suffix: string?,
+	},
+	callback: ((value: number) -> ())?
+)
+	local THEME = self._theme
+	if type(desc) == "table" then
+		callback = config :: any
+		config = desc :: any
+		desc = nil
+	end
+
+	local min = config.min or 0
+	local max = config.max or 100
+	local default = config.default or min
+	local suffix = config.suffix or ""
+	local value = default
+	local height = desc and 52 or 44
+
+	local container = Instance.new("Frame")
+	container.Size = UDim2.new(1, 0, 0, height)
+	container.BackgroundColor3 = THEME.Tertiary
+	container.BorderSizePixel = 0
+	container.LayoutOrder = #tab.elements + 1
+	container.Parent = tab.content
+	makeStroke(container, THEME.Border)
+
+	local lbl = makeLabel(container, label, 13, THEME.Text)
+	lbl.Size = UDim2.new(1, -70, 0, 18)
+	lbl.Position = UDim2.new(0, 8, 0, desc and 5 or 4)
+
+	if desc then
+		local descLbl = makeLabel(container, desc, 11, THEME.SubText)
+		descLbl.Size = UDim2.new(1, -70, 0, 14)
+		descLbl.Position = UDim2.new(0, 8, 0, 22)
+	end
+
+	local valLabel = makeLabel(container, tostring(value) .. suffix, 12, THEME.Text, Enum.Font.Code)
+	valLabel.Size = UDim2.new(0, 58, 0, 18)
+	valLabel.Position = UDim2.new(1, -66, 0, desc and 5 or 4)
+	valLabel.TextXAlignment = Enum.TextXAlignment.Right
+
+	self:onAccentChanged(function(c) valLabel.TextColor3 = c end)
+
+	local trackBg = Instance.new("Frame")
+	trackBg.Size = UDim2.new(1, -16, 0, 4)
+	trackBg.Position = UDim2.new(0, 8, 1, -14)
+	trackBg.BackgroundColor3 = THEME.Background
+	trackBg.BorderSizePixel = 0
+	trackBg.Parent = container
+	makeStroke(trackBg, THEME.Border)
+
+	local fill = Instance.new("Frame")
+	fill.Size = UDim2.new((value - min) / (max - min), 0, 1, 0)
+	fill.BackgroundColor3 = THEME.Accent
+	fill.BorderSizePixel = 0
+	fill.Parent = trackBg
+
+	self:onAccentChanged(function(c) fill.BackgroundColor3 = c end)
+
+	local knob = Instance.new("Frame")
+	knob.Size = UDim2.new(0, 8, 0, 12)
+	knob.Position = UDim2.new((value - min) / (max - min), -4, 0.5, -6)
+	knob.BackgroundColor3 = Color3.new(1, 1, 1)
+	knob.BorderSizePixel = 0
+	knob.ZIndex = 2
+	knob.Parent = trackBg
+
+	local draggingSlider = false
+
+	local function updateSlider(inputX: number)
+		local relative = math.clamp((inputX - trackBg.AbsolutePosition.X) / trackBg.AbsoluteSize.X, 0, 1)
+		value = math.floor(min + (max - min) * relative)
+		valLabel.Text = tostring(value) .. suffix
+		tween(fill, {Size = UDim2.new(relative, 0, 1, 0)})
+		tween(knob, {Position = UDim2.new(relative, -4, 0.5, -6)})
+		if callback then callback(value) end
+	end
+
+	trackBg.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			draggingSlider = true
+			updateSlider(input.Position.X)
+			tween(knob, {Size = UDim2.new(0, 10, 0, 14)})
+		end
+	end)
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 and draggingSlider then
+			draggingSlider = false
+			tween(knob, {Size = UDim2.new(0, 8, 0, 12)})
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if draggingSlider and input.UserInputType == Enum.UserInputType.MouseMovement then
+			updateSlider(input.Position.X)
+		end
+	end)
+
+	local slider = {}
+	slider.value = value
+
+	function slider:set(val: number)
+		value = math.clamp(val, min, max)
+		slider.value = value
+		local relative = (value - min) / (max - min)
+		valLabel.Text = tostring(value) .. suffix
+		tween(fill, {Size = UDim2.new(relative, 0, 1, 0)})
+		tween(knob, {Position = UDim2.new(relative, -4, 0.5, -6)})
+		if callback then callback(value) end
+	end
+
+	table.insert(tab.elements, container)
+	return slider
+end
+
+--[=[
+	Adds a dropdown selector to a tab.
+
+	@param tab table — the tab returned from addTab
+	@param label string — dropdown label text
+	@param desc string? — optional subtitle description (can be omitted)
+	@param options {string} — list of selectable option strings
+	@param default string? — initially selected option (defaults to first)
+	@param callback function? — called with (selected: string) on change
+
+	@return table — { value: string, set: (string) -> () }
+]=]
+function blockyDevs:addDropdown(
+	tab: table,
+	label: string,
+	desc: string?,
+	options: {string},
+	default: string?,
+	callback: ((selected: string) -> ())?
+)
+	local THEME = self._theme
+	if type(desc) == "table" then
+		callback = default :: any
+		default = options :: any
+		options = desc :: any
+		desc = nil
+	end
+
+	local selected = default or options[1] or "Select..."
+	local open = false
+
+	local container = Instance.new("Frame")
+	container.Size = UDim2.new(1, 0, 0, 30)
+	container.BackgroundColor3 = THEME.Tertiary
+	container.BorderSizePixel = 0
+	container.LayoutOrder = #tab.elements + 1
+	container.ClipsDescendants = false
+	container.ZIndex = 10
+	container.Parent = tab.content
+	makeStroke(container, THEME.Border)
+
+	local lbl = makeLabel(container, label, 13, THEME.Text)
+	lbl.Size = UDim2.new(0.5, -8, 0, 30)
+	lbl.Position = UDim2.new(0, 8, 0, 0)
+
+	local selectedLabel = makeLabel(container, selected, 12, THEME.SubText, Enum.Font.Code)
+	selectedLabel.Size = UDim2.new(0.5, -28, 0, 30)
+	selectedLabel.Position = UDim2.new(0.5, 0, 0, 0)
+	selectedLabel.TextXAlignment = Enum.TextXAlignment.Right
+
+	local arrow = makeLabel(container, "v", 11, THEME.SubText, Enum.Font.Code)
+	arrow.Size = UDim2.new(0, 20, 0, 30)
+	arrow.Position = UDim2.new(1, -22, 0, 0)
+	arrow.TextXAlignment = Enum.TextXAlignment.Center
+
+	local clickArea = Instance.new("TextButton")
+	clickArea.Size = UDim2.new(1, 0, 0, 30)
+	clickArea.BackgroundTransparency = 1
+	clickArea.Text = ""
+	clickArea.ZIndex = 11
+	clickArea.Parent = container
+
+	local dropdown = Instance.new("Frame")
+	dropdown.Size = UDim2.new(1, 0, 0, 0)
+	dropdown.Position = UDim2.new(0, 0, 1, 1)
+	dropdown.BackgroundColor3 = THEME.Secondary
+	dropdown.BorderSizePixel = 0
+	dropdown.Visible = false
+	dropdown.ZIndex = 20
+	dropdown.ClipsDescendants = true
+	dropdown.Parent = container
+	makeStroke(dropdown, THEME.Border)
+
+	local ddLayout = Instance.new("UIListLayout")
+	ddLayout.Padding = UDim.new(0, 0)
+	ddLayout.Parent = dropdown
+
+	local function closeDropdown()
+		open = false
+		tween(dropdown, {Size = UDim2.new(1, 0, 0, 0)}, tweenFast)
+		arrow.Text = "v"
+		task.delay(0.15, function() if not open then dropdown.Visible = false end end)
+	end
+
+	local function openDropdown()
+		open = true
+		dropdown.Visible = true
+		tween(dropdown, {Size = UDim2.new(1, 0, 0, #options * 24)}, tweenFast)
+		arrow.Text = "^"
+	end
+
+	for _, option in ipairs(options) do
+		local optBtn = Instance.new("TextButton")
+		optBtn.Size = UDim2.new(1, 0, 0, 24)
+		optBtn.BackgroundColor3 = option == selected and THEME.Active or THEME.Secondary
+		optBtn.Text = "  " .. option
+		optBtn.TextColor3 = option == selected and THEME.Text or THEME.SubText
+		optBtn.TextSize = 12
+		optBtn.Font = Enum.Font.SourceSans
+		optBtn.TextXAlignment = Enum.TextXAlignment.Left
+		optBtn.AutoButtonColor = false
+		optBtn.BorderSizePixel = 0
+		optBtn.ZIndex = 21
+		optBtn.Parent = dropdown
+
+		optBtn.MouseEnter:Connect(function()
+			if option ~= selected then tween(optBtn, {BackgroundColor3 = THEME.Tertiary}) end
+		end)
+		optBtn.MouseLeave:Connect(function()
+			if option ~= selected then tween(optBtn, {BackgroundColor3 = THEME.Secondary}) end
+		end)
+		optBtn.MouseButton1Click:Connect(function()
+			selected = option
+			selectedLabel.Text = option
+			for _, child in ipairs(dropdown:GetChildren()) do
+				if child:IsA("TextButton") then
+					tween(child, {BackgroundColor3 = THEME.Secondary, TextColor3 = THEME.SubText})
+				end
+			end
+			tween(optBtn, {BackgroundColor3 = THEME.Active, TextColor3 = THEME.Text})
+			closeDropdown()
+			fireEvent("dropdownChanged", label, option)
+			if callback then callback(option) end
+		end)
+	end
+
+	container.MouseEnter:Connect(function() tween(container, {BackgroundColor3 = THEME.Active}) end)
+	container.MouseLeave:Connect(function() tween(container, {BackgroundColor3 = THEME.Tertiary}) end)
+	clickArea.MouseButton1Click:Connect(function()
+		if open then closeDropdown() else openDropdown() end
+	end)
+
+	table.insert(tab.elements, container)
+
+	local dd = {}
+	dd.value = selected
+	function dd:set(val: string)
+		selected = val
+		selectedLabel.Text = val
+		dd.value = val
+	end
+	return dd
+end
+
+--[=[
+	Adds a text input field to a tab.
+
+	@param tab table — the tab returned from addTab
+	@param label string — label shown above the input box
+	@param desc string? — optional subtitle (can be omitted entirely)
+	@param placeholder string? — grey hint text shown when empty
+	@param callback function? — called with (text: string) when Enter is pressed
+
+	@return TextBox
+]=]
+function blockyDevs:addInput(
+	tab: table,
+	label: string,
+	desc: string?,
+	placeholder: string?,
+	callback: ((text: string) -> ())?
+)
+	local THEME = self._theme
+	if type(desc) == "string" and (not placeholder or type(placeholder) == "function") then
+		callback = placeholder :: any
+		placeholder = desc
+		desc = nil
+	elseif type(desc) == "function" then
+		callback = desc :: any
+		placeholder = nil
+		desc = nil
+	end
+
+	local height = desc and 52 or 42
+
+	local container = Instance.new("Frame")
+	container.Size = UDim2.new(1, 0, 0, height)
+	container.BackgroundColor3 = THEME.Tertiary
+	container.BorderSizePixel = 0
+	container.LayoutOrder = #tab.elements + 1
+	container.Parent = tab.content
+	makeStroke(container, THEME.Border)
+
+	local lbl = makeLabel(container, label, 13, THEME.Text)
+	lbl.Size = UDim2.new(1, -16, 0, 18)
+	lbl.Position = UDim2.new(0, 8, 0, 4)
+
+	if desc then
+		local descLbl = makeLabel(container, desc, 11, THEME.SubText)
+		descLbl.Size = UDim2.new(1, -16, 0, 14)
+		descLbl.Position = UDim2.new(0, 8, 0, 20)
+	end
+
+	local inputBox = Instance.new("TextBox")
+	inputBox.Size = UDim2.new(1, -16, 0, 17)
+	inputBox.Position = UDim2.new(0, 8, 1, -20)
+	inputBox.BackgroundColor3 = THEME.Background
+	inputBox.PlaceholderText = placeholder or "Enter value..."
+	inputBox.PlaceholderColor3 = THEME.SubText
+	inputBox.Text = ""
+	inputBox.TextColor3 = THEME.Text
+	inputBox.TextSize = 12
+	inputBox.Font = Enum.Font.Code
+	inputBox.ClearTextOnFocus = false
+	inputBox.TextXAlignment = Enum.TextXAlignment.Left
+	inputBox.BorderSizePixel = 0
+	inputBox.Parent = container
+	local inputStroke = makeStroke(inputBox, THEME.Border)
+
+	local pad = Instance.new("UIPadding")
+	pad.PaddingLeft = UDim.new(0, 6)
+	pad.Parent = inputBox
+
+	inputBox.Focused:Connect(function()
+		tween(container, {BackgroundColor3 = THEME.Active})
+	end)
+	inputBox.FocusLost:Connect(function(entered)
+		tween(inputStroke, {Color = THEME.Border})
+		tween(container, {BackgroundColor3 = THEME.Tertiary})
+		if entered and callback then
+			fireEvent("inputSubmitted", label, inputBox.Text)
+			callback(inputBox.Text)
+		end
+	end)
+
+	table.insert(tab.elements, container)
+	return inputBox
+end
+
+--[=[
+	Adds a keybind picker to a tab. Click the button to enter listening mode,
+	then press any key to bind it. Pressing the bound key fires the callback.
+
+	@param tab table — the tab returned from addTab
+	@param label string — keybind label text
+	@param desc string? — optional subtitle description (can be omitted)
+	@param default Enum.KeyCode? — initial bound key (default: Unknown)
+	@param callback function? — called when the bound key is pressed
+
+	@return TextButton — the key display button
+]=]
+function blockyDevs:addKeybind(
+	tab: table,
+	label: string,
+	desc: string?,
+	default: Enum.KeyCode?,
+	callback: (() -> ())?
+)
+	local THEME = self._theme
+	if type(desc) == "userdata" or type(desc) == "nil" then
+		callback = default :: any
+		default = desc :: any
+		desc = nil
+	end
+
+	local bound = default or Enum.KeyCode.Unknown
+	local listening = false
+
+	local row = Instance.new("Frame")
+	row.Size = UDim2.new(1, 0, 0, desc and 44 or 30)
+	row.BackgroundColor3 = THEME.Tertiary
+	row.BorderSizePixel = 0
+	row.LayoutOrder = #tab.elements + 1
+	row.Parent = tab.content
+	makeStroke(row, THEME.Border)
+
+	local lbl = makeLabel(row, label, 13, THEME.Text)
+	lbl.Size = UDim2.new(1, -100, 0, 18)
+	lbl.Position = UDim2.new(0, 8, 0, desc and 5 or 6)
+
+	if desc then
+		local descLbl = makeLabel(row, desc, 11, THEME.SubText)
+		descLbl.Size = UDim2.new(1, -100, 0, 14)
+		descLbl.Position = UDim2.new(0, 8, 0, 24)
+	end
+
+	local keyBtn = Instance.new("TextButton")
+	keyBtn.Size = UDim2.new(0, 80, 0, 20)
+	keyBtn.Position = UDim2.new(1, -88, 0.5, -10)
+	keyBtn.BackgroundColor3 = THEME.Background
+	keyBtn.Text = "[" .. bound.Name .. "]"
+	keyBtn.TextColor3 = THEME.SubText
+	keyBtn.TextSize = 11
+	keyBtn.Font = Enum.Font.Code
+	keyBtn.AutoButtonColor = false
+	keyBtn.BorderSizePixel = 0
+	keyBtn.Parent = row
+	local keyStroke = makeStroke(keyBtn, THEME.Border)
+
+	keyBtn.MouseButton1Click:Connect(function()
+		if listening then return end
+		listening = true
+		keyBtn.Text = "[...]"
+		tween(keyBtn, {TextColor3 = THEME.Accent})
+		tween(keyStroke, {Color = THEME.Accent})
+	end)
+
+	row.MouseEnter:Connect(function() tween(row, {BackgroundColor3 = THEME.Active}) end)
+	row.MouseLeave:Connect(function() tween(row, {BackgroundColor3 = THEME.Tertiary}) end)
+
+	UserInputService.InputBegan:Connect(function(input, gpe)
+		if listening and input.UserInputType == Enum.UserInputType.Keyboard then
+			listening = false
+			bound = input.KeyCode
+			keyBtn.Text = "[" .. bound.Name .. "]"
+			tween(keyBtn, {TextColor3 = THEME.SubText})
+			tween(keyStroke, {Color = THEME.Border})
+			fireEvent("keybindChanged", label, bound)
+		elseif not listening and not gpe and input.KeyCode == bound then
+			fireEvent("keybindFired", label, bound)
+			if callback then callback() end
+		end
+	end)
+
+	table.insert(tab.elements, row)
+	return keyBtn
+end
+
+--[=[
+	Adds a color picker to a tab. Clicking the preview opens a floating
+	picker with a hue ring, saturation/value square, and a hex input.
+
+	@param tab table — the tab returned from addTab
+	@param label string — label text
+	@param desc string? — optional subtitle (can be omitted)
+	@param default Color3? — initial color (default: blue)
+	@param callback function? — called with (color: Color3) on change
+
+	@return table — { value: Color3, set: (Color3) -> () }
+]=]
+function blockyDevs:addColorPicker(
+	tab: table,
+	label: string,
+	desc: string?,
+	default: Color3?,
+	callback: ((color: Color3) -> ())?
+)
+	local THEME = self._theme
+	if type(desc) == "userdata" then
+		callback = default :: any
+		default = desc :: any
+		desc = nil
+	end
+
+	local color = default or Color3.fromRGB(0, 120, 215)
+	local h, s, v = rgbToHsv(color)
+	local open = false
+	local PICKER_SIZE = 160
+	local RING_THICKNESS = 18
+	local CENTER = PICKER_SIZE / 2
+	local OUTER_R = CENTER
+	local INNER_R = CENTER - RING_THICKNESS
+
+	local container = Instance.new("Frame")
+	container.Size = UDim2.new(1, 0, 0, 30)
+	container.BackgroundColor3 = THEME.Tertiary
+	container.BorderSizePixel = 0
+	container.LayoutOrder = #tab.elements + 1
+	container.ZIndex = 5
+	container.Parent = tab.content
+	makeStroke(container, THEME.Border)
+
+	local lbl = makeLabel(container, label, 13, THEME.Text)
+	lbl.Size = UDim2.new(1, -60, 0, 30)
+	lbl.Position = UDim2.new(0, 8, 0, 0)
+
+	local preview = Instance.new("Frame")
+	preview.Size = UDim2.new(0, 36, 0, 16)
+	preview.Position = UDim2.new(1, -44, 0.5, -8)
+	preview.BackgroundColor3 = color
+	preview.BorderSizePixel = 0
+	preview.ZIndex = 6
+	preview.Parent = container
+	makeStroke(preview, THEME.Border)
+
+	local pickerFrame = Instance.new("Frame")
+	pickerFrame.Size = UDim2.new(0, PICKER_SIZE + 20, 0, PICKER_SIZE + 50)
+	pickerFrame.BackgroundColor3 = THEME.Secondary
+	pickerFrame.BorderSizePixel = 0
+	pickerFrame.ZIndex = 999
+	pickerFrame.Visible = false
+	pickerFrame.Parent = self.screenGui
+	makeStroke(pickerFrame, THEME.Border)
+
+	local function updatePosition()
+		local pos = container.AbsolutePosition
+		local size = container.AbsoluteSize
+		pickerFrame.Position = UDim2.new(0, pos.X + size.X - (PICKER_SIZE + 20), 0, pos.Y + size.Y + 4)
+	end
+
+	local wheelContainer = Instance.new("Frame")
+	wheelContainer.Size = UDim2.new(0, PICKER_SIZE, 0, PICKER_SIZE)
+	wheelContainer.Position = UDim2.new(0, 10, 0, 8)
+	wheelContainer.BackgroundTransparency = 1
+	wheelContainer.ZIndex = 1000
+	wheelContainer.ClipsDescendants = false
+	wheelContainer.Parent = pickerFrame
+
+	local wheelImage = Instance.new("ImageLabel")
+	wheelImage.Size = UDim2.new(1, 0, 1, 0)
+	wheelImage.BackgroundTransparency = 1
+	wheelImage.Image = "rbxassetid://105960201576495"
+	wheelImage.ZIndex = 1001
+	wheelImage.Parent = wheelContainer
+
+	local hueKnob = Instance.new("Frame")
+	hueKnob.Size = UDim2.new(0, 12, 0, 12)
+	hueKnob.AnchorPoint = Vector2.new(0.5, 0.5)
+	hueKnob.BackgroundColor3 = Color3.new(1, 1, 1)
+	local hueknobCorner = Instance.new("UICorner")
+	hueknobCorner.Parent = hueKnob
+	hueknobCorner.CornerRadius = UDim.new(1, 0)
+	hueKnob.BorderSizePixel = 0
+	hueKnob.ZIndex = 1003
+	hueKnob.Parent = wheelContainer
+	makeStroke(hueKnob, Color3.fromRGB(0, 0, 0))
+
+	local svSize = INNER_R * 2 - 48
+	local svBox = Instance.new("Frame")
+	svBox.Size = UDim2.new(0, svSize, 0, svSize)
+	svBox.Position = UDim2.new(0, CENTER - svSize / 2, 0, CENTER - svSize / 2)
+	svBox.BackgroundColor3 = hsvToRgb(h, 1, 1)
+	svBox.BorderSizePixel = 0
+	svBox.ZIndex = 1001
+	svBox.ClipsDescendants = true
+	svBox.Parent = wheelContainer
+
+	local satGrad = Instance.new("Frame")
+	satGrad.Size = UDim2.new(1, 0, 1, 0)
+	satGrad.BackgroundColor3 = Color3.new(1, 1, 1)
+	satGrad.BorderSizePixel = 0
+	satGrad.ZIndex = 1002
+	satGrad.Parent = svBox
+	local sg = Instance.new("UIGradient")
+	sg.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	sg.Rotation = 0
+	sg.Parent = satGrad
+
+	local valGrad = Instance.new("Frame")
+	valGrad.Size = UDim2.new(1, 0, 1, 0)
+	valGrad.BackgroundColor3 = Color3.new(0, 0, 0)
+	valGrad.BorderSizePixel = 0
+	valGrad.ZIndex = 1002
+	valGrad.Parent = svBox
+	local vg = Instance.new("UIGradient")
+	vg.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+	vg.Rotation = 90
+	vg.Parent = valGrad
+
+	local svKnob = Instance.new("Frame")
+	svKnob.Size = UDim2.new(0, 10, 0, 10)
+	svKnob.AnchorPoint = Vector2.new(0.5, 0.5)
+	svKnob.BackgroundColor3 = Color3.new(1, 1, 1)
+	svKnob.BorderSizePixel = 0
+	svKnob.ZIndex = 1004
+	svKnob.Parent = svBox
+	local svknobCorner = Instance.new("UICorner")
+	svknobCorner.Parent = svKnob
+	svknobCorner.CornerRadius = UDim.new(1, 0)
+	makeStroke(svKnob, Color3.new(0, 0, 0))
+
+	local hexBox = Instance.new("TextBox")
+	hexBox.Size = UDim2.new(1, -20, 0, 22)
+	hexBox.Position = UDim2.new(0, 10, 1, -30)
+	hexBox.BackgroundColor3 = THEME.Background
+	hexBox.BorderSizePixel = 0
+	hexBox.TextColor3 = THEME.Text
+	hexBox.TextSize = 11
+	hexBox.Font = Enum.Font.Code
+	hexBox.TextXAlignment = Enum.TextXAlignment.Center
+	hexBox.ClearTextOnFocus = false
+	hexBox.ZIndex = 1001
+	hexBox.Parent = pickerFrame
+	makeStroke(hexBox, THEME.Border)
+
+	local function colorToHex(c: Color3): string
+		return string.format("#%02X%02X%02X",
+			math.floor(c.R * 255),
+			math.floor(c.G * 255),
+			math.floor(c.B * 255))
+	end
+
+	local function updateHueKnob()
+		local angle = h * math.pi * 2
+		local midR = (OUTER_R + INNER_R) / 2
+		hueKnob.Position = UDim2.new(0, CENTER + math.cos(angle) * midR, 0, CENTER + math.sin(angle) * midR)
+	end
+
+	local function updateSvKnob()
+		svKnob.Position = UDim2.new(s, 0, 1 - v, 0)
+	end
+
+	local function applyColor()
+		color = hsvToRgb(h, s, v)
+		preview.BackgroundColor3 = color
+		svBox.BackgroundColor3 = hsvToRgb(h, 1, 1)
+		hexBox.Text = colorToHex(color)
+		fireEvent("colorChanged", label, color)
+		if callback then callback(color) end
+	end
+
+	updateHueKnob()
+	updateSvKnob()
+	hexBox.Text = colorToHex(color)
+
+	hexBox.FocusLost:Connect(function(entered)
+		if entered then
+			local hex = hexBox.Text:gsub("#", "")
+			if #hex == 6 then
+				local r2 = tonumber(hex:sub(1,2), 16)
+				local g2 = tonumber(hex:sub(3,4), 16)
+				local b2 = tonumber(hex:sub(5,6), 16)
+				if r2 and g2 and b2 then
+					h, s, v = rgbToHsv(Color3.fromRGB(r2, g2, b2))
+					updateHueKnob()
+					updateSvKnob()
+					applyColor()
+				end
+			end
+		end
+	end)
+
+	local draggingHue = false
+	local draggingSv = false
+
+	local function handleHueDrag(inputPos: Vector2)
+		local wx = wheelContainer.AbsolutePosition.X + CENTER
+		local wy = wheelContainer.AbsolutePosition.Y + CENTER
+		local angle = math.atan2(inputPos.Y - wy, inputPos.X - wx)
+		if angle < 0 then angle = angle + math.pi * 2 end
+		h = angle / (math.pi * 2)
+		updateHueKnob()
+		applyColor()
+	end
+
+	local function handleSvDrag(inputPos: Vector2)
+		local bx = svBox.AbsolutePosition.X
+		local by = svBox.AbsolutePosition.Y
+		s = math.clamp((inputPos.X - bx) / svBox.AbsoluteSize.X, 0, 1)
+		v = 1 - math.clamp((inputPos.Y - by) / svBox.AbsoluteSize.Y, 0, 1)
+		updateSvKnob()
+		applyColor()
+	end
+
+	wheelContainer.InputBegan:Connect(function(input)
+		if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+		local wx = wheelContainer.AbsolutePosition.X + CENTER
+		local wy = wheelContainer.AbsolutePosition.Y + CENTER
+		local dx = input.Position.X - wx
+		local dy = input.Position.Y - wy
+		local dist = math.sqrt(dx*dx + dy*dy)
+		if dist >= INNER_R - 8 and dist <= OUTER_R + 5 then
+			draggingHue = true
+			handleHueDrag(Vector2.new(input.Position.X, input.Position.Y))
+		end
+	end)
+
+	svBox.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			draggingSv = true
+			handleSvDrag(Vector2.new(input.Position.X, input.Position.Y))
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
+		local pos = Vector2.new(input.Position.X, input.Position.Y)
+		if draggingHue then handleHueDrag(pos) end
+		if draggingSv then handleSvDrag(pos) end
+	end)
+
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			draggingHue = false
+			draggingSv = false
+		end
+	end)
+
+	local clickArea = Instance.new("TextButton")
+	clickArea.Size = UDim2.new(1, 0, 1, 0)
+	clickArea.BackgroundTransparency = 1
+	clickArea.Text = ""
+	clickArea.ZIndex = 7
+	clickArea.Parent = container
+
+	clickArea.MouseButton1Click:Connect(function()
+		open = not open
+		if open then
+			updatePosition()
+			pickerFrame.Visible = true
+			pickerFrame.BackgroundTransparency = 1
+			tween(pickerFrame, {BackgroundTransparency = 0}, tweenFast)
+		else
+			tween(pickerFrame, {BackgroundTransparency = 1}, tweenFast)
+			task.delay(0.15, function()
+				if not open then pickerFrame.Visible = false end
+			end)
+		end
+	end)
+
+	container.MouseEnter:Connect(function() tween(container, {BackgroundColor3 = THEME.Active}) end)
+	container.MouseLeave:Connect(function() tween(container, {BackgroundColor3 = THEME.Tertiary}) end)
+
+	table.insert(tab.elements, container)
+
+	local cp = {}
+	cp.value = color
+
+	function cp:set(val: Color3)
+		color = val
+		h, s, v = rgbToHsv(val)
+		preview.BackgroundColor3 = val
+		svBox.BackgroundColor3 = hsvToRgb(h, 1, 1)
+		updateHueKnob()
+		updateSvKnob()
+		hexBox.Text = colorToHex(val)
+		cp.value = val
+	end
+
+	return cp
+end
+
+--[=[
+	Adds a read-only label row to a tab.
+
+	@param tab table — the tab returned from addTab
+	@param text string — text to display
+	@return TextLabel
+]=]
+function blockyDevs:addLabel(tab:table, text: string)
+	local THEME = self._theme
+	local frame = Instance.new("Frame")
+	frame.Size = UDim2.new(1, 0, 0, 24)
+	frame.BackgroundColor3 = THEME.Console
+	frame.BorderSizePixel = 0
+	frame.LayoutOrder = #tab.elements + 1
+	frame.Parent = tab.content
+	makeStroke(frame, THEME.Border)
+
+	local lbl = makeLabel(frame, "  " .. text, 12, THEME.SubText, Enum.Font.Code)
+	lbl.Size = UDim2.new(1, 0, 1, 0)
+
+	table.insert(tab.elements, frame)
+	return lbl
+end
+
+--[=[
+	Adds a 1px horizontal divider line to a tab.
+
+	@param tab table — the tab returned from addTab
+	@return Frame
+]=]
+function blockyDevs:addSeparator(tab: table)
+	local THEME = self._theme
+	local sep = Instance.new("Frame")
+	sep.Size = UDim2.new(1, 0, 0, 1)
+	sep.BackgroundColor3 = THEME.Border
+	sep.BorderSizePixel = 0
+	sep.LayoutOrder = #tab.elements + 1
+	sep.Parent = tab.content
+	table.insert(tab.elements, sep)
+	return sep
+end
+
+return blockyDevs
